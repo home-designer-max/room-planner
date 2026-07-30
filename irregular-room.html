@@ -286,14 +286,15 @@ button:active{ transform:scale(0.98); }
     overflow:hidden;
 }
 
-.draw-svg, .door-layer{
+.draw-svg, .door-layer, .window-layer{
     position:absolute;
     inset:0;
     width:100%;
     height:100%;
 }
 
-.door-layer{ pointer-events:none; z-index:50; }
+.door-layer, .window-layer{ pointer-events:none; z-index:50; }
+.window-layer g, .window-layer polygon, .window-layer line, .window-layer rect { pointer-events: visiblePainted; }
 .furn-overlay{ position:absolute; inset:0; pointer-events:none; z-index:2000; }
 
 .draw-controls{ display:flex; gap:10px; width:100%; }
@@ -316,22 +317,36 @@ button:active{ transform:scale(0.98); }
     width:100%;
 }
 
-/* ---- Door Controls ---- */
-.door-control-badge{
+/* ---- Door & Window Controls ---- */
+.door-control-badge, .window-control-badge{
     position:absolute;
     display:flex;
     gap:4px;
     z-index:100;
     transform:translate(-50%, -50%);
+    pointer-events:auto;
 }
-.door-delete-btn, .door-flip-btn{
+
+/* Window remove button default hidden, shown via JS trigger */
+.window-control-badge {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.window-control-badge.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.door-delete-btn, .door-flip-btn, .window-delete-btn{
     width:24px; height:24px; border-radius:50%;
     color:white; border:none; font-size:11px; font-weight:bold;
     display:flex; align-items:center; justify-content:center;
     padding:0; cursor:pointer;
     box-shadow:0 2px 6px rgba(0,0,0,0.25);
 }
-.door-delete-btn{ background:#c0392b; }
+.door-delete-btn, .window-delete-btn{ background:#c0392b; }
 .door-flip-btn{ background:#2d2d2d; }
 
 /* ---- Furniture elements ---- */
@@ -438,7 +453,7 @@ button:active{ transform:scale(0.98); }
         <div class="form-title">Your Room Design</div>
 
         <div class="designer-layout">
-            <!-- Sidebar for Doors & Furniture -->
+            <!-- Sidebar for Doors, Windows & Furniture -->
             <div class="sidebar">
                 <button class="sidebar-btn" id="btnDoorway" type="button">&#128682; Add Doorway</button>
 
@@ -474,6 +489,31 @@ button:active{ transform:scale(0.98); }
                     <div class="hint-text" id="doorInfoHint">Wall length: -- ft</div>
 
                     <button class="panel-add-btn" id="addDoorBtn" type="button">Add Door to Room</button>
+                </div>
+
+                <button class="sidebar-btn" id="btnWindow" type="button">&#129707; Add Window</button>
+
+                <div class="side-panel hidden" id="windowPanel">
+                    <div class="panel-heading">Configure Window</div>
+
+                    <div class="panel-field">
+                        <label>Select Wall</label>
+                        <select id="winWallSelectDropdown"></select>
+                    </div>
+
+                    <div class="panel-field">
+                        <label>Window Width <span id="winSizeVal">4.0 ft</span></label>
+                        <input type="number" id="winSizeInput" min="0.5" step="0.5" value="4">
+                    </div>
+
+                    <div class="panel-field">
+                        <label>Position Along Wall <span id="winPosVal">50%</span></label>
+                        <input type="range" id="winPosSlider" min="0" max="100" value="50">
+                    </div>
+
+                    <div class="hint-text" id="winInfoHint">Wall length: -- ft</div>
+
+                    <button class="panel-add-btn" id="addWinBtn" type="button">Add Window to Room</button>
                 </div>
 
                 <button class="sidebar-btn" id="btnFurniture" type="button">&#128715; Add Furniture</button>
@@ -522,6 +562,7 @@ button:active{ transform:scale(0.98); }
                 <div class="stage-frame" id="finishedFrame">
                     <div class="room-stage" id="finishedStage">
                         <svg id="finishedSvg" class="draw-svg"></svg>
+                        <svg id="windowLayer" class="window-layer"></svg>
                         <svg id="doorLayer" class="door-layer"></svg>
                         <div class="furn-overlay" id="furnOverlay"></div>
                     </div>
@@ -563,10 +604,16 @@ let pendingPoint = null;
 let closed = false;
 
 let doors = [];
+let windows = [];
 let furniture = [];
 let selectedFurnId = null;
+
 let pendingDoor = null;
 let isPendingDoorValid = true;
+
+let pendingWindow = null;
+let isPendingWindowValid = true;
+
 let pendingFurnType = null;
 let currentPendingFlip = false;
 
@@ -832,6 +879,22 @@ function isPointInPolygon(p, verts){
     return inside;
 }
 
+function pointInsideOrOnEdge(pt, poly) {
+  const eps = 1e-6;
+
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[j];
+    const b = poly[i];
+
+    const cross = (b.x - a.x) * (pt.y - a.y) - (b.y - a.y) * (pt.x - a.x);
+    const dot = (pt.x - a.x) * (pt.x - b.x) + (pt.y - a.y) * (pt.y - b.y);
+
+    if (Math.abs(cross) < eps && dot <= eps) return true;
+  }
+
+  return isPointInPolygon(pt, poly);
+}
+
 function isRectInsidePolygon(rect, verts){
     const margin = 0.02;
     const pts = [
@@ -889,22 +952,34 @@ function getCornerAngleForWall(wallIdx, flip){
 }
 
 /* ============ Finalize Room ============ */
-function finalizeShape(){
-    document.getElementById('drawCard').classList.add('hidden');
-    document.getElementById('finishedCard').classList.remove('hidden');
-
-    const select = document.getElementById('wallSelectDropdown');
-    select.innerHTML = '';
+function populateWallDropdowns(){
+    const selectDoor = document.getElementById('wallSelectDropdown');
+    const selectWin = document.getElementById('winWallSelectDropdown');
+    selectDoor.innerHTML = '';
+    selectWin.innerHTML = '';
+    
     const n = vertices.length;
     vertices.forEach((v, i) => {
         const next = vertices[(i + 1) % n];
         const len = Math.sqrt((next.x - v.x)**2 + (next.y - v.y)**2);
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = `Wall ${i+1} (${round2(len)} ft)`;
-        select.appendChild(opt);
-    });
+        
+        const optDoor = document.createElement('option');
+        optDoor.value = i;
+        optDoor.textContent = `Wall ${i+1} (${round2(len)} ft)`;
+        selectDoor.appendChild(optDoor);
 
+        const optWin = document.createElement('option');
+        optWin.value = i;
+        optWin.textContent = `Wall ${i+1} (${round2(len)} ft)`;
+        selectWin.appendChild(optWin);
+    });
+}
+
+function finalizeShape(){
+    document.getElementById('drawCard').classList.add('hidden');
+    document.getElementById('finishedCard').classList.remove('hidden');
+
+    populateWallDropdowns();
     closeAllPanels();
     renderFinishedRoom();
 }
@@ -955,6 +1030,7 @@ function renderFinishedRoom(){
         wallListEl.appendChild(item);
     });
 
+    renderWindowsLayer();
     renderDoorsLayer();
     renderFurnitureLayer();
 }
@@ -970,13 +1046,20 @@ window.addEventListener('resize', () => {
 /* ============ Sidebar UI ============ */
 function closeAllPanels(){
     document.getElementById('doorwayPanel').classList.add('hidden');
+    document.getElementById('windowPanel').classList.add('hidden');
     document.getElementById('furniturePanel').classList.add('hidden');
     document.getElementById('bedSizePanel').classList.add('hidden');
     document.getElementById('furnDimsPanel').classList.add('hidden');
+    
     document.getElementById('btnDoorway').classList.remove('active');
+    document.getElementById('btnWindow').classList.remove('active');
     document.getElementById('btnFurniture').classList.remove('active');
+    
     pendingDoor = null;
+    pendingWindow = null;
+    
     renderDoorsLayer();
+    renderWindowsLayer();
 }
 
 document.getElementById('btnDoorway').addEventListener('click', function(){
@@ -990,6 +1073,17 @@ document.getElementById('btnDoorway').addEventListener('click', function(){
     }
 });
 
+document.getElementById('btnWindow').addEventListener('click', function(){
+    const panel = document.getElementById('windowPanel');
+    const isOpen = !panel.classList.contains('hidden');
+    closeAllPanels();
+    if(!isOpen){
+        panel.classList.remove('hidden');
+        this.classList.add('active');
+        updatePendingWindowPreview();
+    }
+});
+
 document.getElementById('btnFurniture').addEventListener('click', function(){
     const panel = document.getElementById('furniturePanel');
     const isOpen = !panel.classList.contains('hidden');
@@ -1000,15 +1094,7 @@ document.getElementById('btnFurniture').addEventListener('click', function(){
     }
 });
 
-/* ============ Doorway Vector Geometry & Placement ============ */
-document.getElementById('wallSelectDropdown').addEventListener('change', updatePendingDoorPreview);
-document.getElementById('doorPosSlider').addEventListener('input', updatePendingDoorPreview);
-document.getElementById('doorSizeInput').addEventListener('input', updatePendingDoorPreview);
-document.getElementById('toggleHingeBtn').addEventListener('click', () => {
-    currentPendingFlip = !currentPendingFlip;
-    updatePendingDoorPreview();
-});
-
+/* ============ Vector Geometry Helper ============ */
 function getWallVectorInfo(wallIdx){
     const n = vertices.length;
     const p1 = vertices[wallIdx];
@@ -1028,6 +1114,171 @@ function getWallVectorInfo(wallIdx){
 
     return { p1, p2, len, ux, uy, nx, ny };
 }
+
+/* ============ Window Vector Geometry & Placement ============ */
+document.getElementById('winWallSelectDropdown').addEventListener('change', updatePendingWindowPreview);
+document.getElementById('winPosSlider').addEventListener('input', updatePendingWindowPreview);
+document.getElementById('winSizeInput').addEventListener('input', updatePendingWindowPreview);
+
+function windowGeometry(w){
+    const wallInfo = getWallVectorInfo(w.wallIdx);
+    const startU = w.posUnits;
+    const endU = w.posUnits + w.sizeUnits;
+
+    const realP1 = { x: wallInfo.p1.x + wallInfo.ux * startU, y: wallInfo.p1.y + wallInfo.uy * startU };
+    const realP2 = { x: wallInfo.p1.x + wallInfo.ux * endU, y: wallInfo.p1.y + wallInfo.uy * endU };
+
+    const p1 = realToScreen(realP1, 'finishedStage');
+    const p2 = realToScreen(realP2, 'finishedStage');
+
+    return { p1, p2, realP1, realP2, wallInfo };
+}
+
+function updatePendingWindowPreview(){
+    const select = document.getElementById('winWallSelectDropdown');
+    const wallIdx = parseInt(select.value);
+    if(isNaN(wallIdx) || wallIdx < 0) { pendingWindow = null; renderWindowsLayer(); return; }
+
+    const wallInfo = getWallVectorInfo(wallIdx);
+
+    let sizeUnits = parseFloat(document.getElementById('winSizeInput').value);
+    if(isNaN(sizeUnits) || sizeUnits <= 0) sizeUnits = 4;
+
+    document.getElementById('winSizeVal').textContent = `${sizeUnits.toFixed(1)} ft`;
+
+    const sliderPct = parseFloat(document.getElementById('winPosSlider').value) / 100;
+    const maxPos = Math.max(0, wallInfo.len - sizeUnits);
+    let posUnits = sliderPct * maxPos;
+
+    document.getElementById('winPosVal').textContent = `${Math.round(sliderPct * 100)}%`;
+
+    pendingWindow = {
+        wallIdx,
+        posUnits,
+        sizeUnits,
+        pending: true
+    };
+
+    isPendingWindowValid = sizeUnits <= wallInfo.len;
+
+    const hintEl = document.getElementById('winInfoHint');
+    const addBtn = document.getElementById('addWinBtn');
+
+    if(!isPendingWindowValid){
+        hintEl.textContent = `⚠️ Window exceeds wall length!`;
+        hintEl.classList.add('hint-warning');
+        addBtn.disabled = true;
+    } else {
+        hintEl.textContent = `Wall ${wallIdx+1} Length: ${round2(wallInfo.len)} ft`;
+        hintEl.classList.remove('hint-warning');
+        addBtn.disabled = false;
+    }
+
+    renderWindowsLayer();
+}
+
+document.getElementById('addWinBtn').addEventListener('click', function(){
+    if(!pendingWindow || !isPendingWindowValid) return;
+
+    windows.push({
+        id: uid(),
+        wallIdx: pendingWindow.wallIdx,
+        posUnits: pendingWindow.posUnits,
+        sizeUnits: pendingWindow.sizeUnits
+    });
+
+    pendingWindow = null;
+    closeAllPanels();
+    renderWindowsLayer();
+});
+
+function renderWindowsLayer(){
+    const box = getStageBox('finishedStage');
+    const svg = document.getElementById('windowLayer');
+    svg.setAttribute('width', box.w);
+    svg.setAttribute('height', box.h);
+    svg.setAttribute('viewBox', `0 0 ${box.w} ${box.h}`);
+
+    let content = '';
+
+    const renderWinSvg = (geom, pending, isValid = true, id = '') => {
+        const { p1, p2, wallInfo } = geom;
+        const offsetPx = 10; // Larger hit area
+        
+        const nx = wallInfo.nx * offsetPx;
+        const ny = wallInfo.ny * offsetPx;
+
+        let strokeCol = pending ? '#3b82f6' : '#0284c7';
+        let fillCol = pending ? 'rgba(59, 130, 246, 0.2)' : 'rgba(186, 230, 253, 0.7)';
+
+        if(pending && !isValid){
+            strokeCol = '#d32f2f';
+            fillCol = 'rgba(211, 47, 47, 0.25)';
+        }
+
+        const rectPoly = `
+            ${p1.x - nx},${p1.y - ny} 
+            ${p2.x - nx},${p2.y - ny} 
+            ${p2.x + nx},${p2.y + ny} 
+            ${p1.x + nx},${p1.y + ny}
+        `;
+
+        return `
+            <g class="${!pending ? 'win-hover-group' : ''}" data-id="${id}">
+                <polygon points="${rectPoly}" fill="transparent" stroke="none" style="cursor:pointer;" />
+                <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#FBFDFC" stroke-width="6"/>
+                <polygon points="${rectPoly}" fill="${fillCol}" stroke="${strokeCol}" stroke-width="1.5" stroke-dasharray="${pending ? '3 3' : 'none'}" style="pointer-events:none;"/>
+                <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${strokeCol}" stroke-width="1.5" style="pointer-events:none;"/>
+            </g>
+        `;
+    };
+
+    windows.forEach(w => content += renderWinSvg(windowGeometry(w), false, true, w.id));
+    if (pendingWindow) content += renderWinSvg(windowGeometry(pendingWindow), true, isPendingWindowValid);
+    svg.innerHTML = content;
+
+    document.querySelectorAll('.window-control-badge').forEach(b => b.remove());
+    const stage = document.getElementById('finishedStage');
+
+    windows.forEach(w => {
+        const geom = windowGeometry(w);
+        const badge = document.createElement('div');
+        badge.className = 'window-control-badge';
+        badge.setAttribute('data-win-id', w.id);
+        badge.style.left = `${(geom.p1.x + geom.p2.x)/2}px`;
+        badge.style.top = `${(geom.p1.y + geom.p2.y)/2}px`;
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'window-delete-btn';
+        delBtn.innerHTML = '&#10005;';
+        delBtn.title = 'Remove Window';
+        delBtn.onclick = (e) => { e.stopPropagation(); windows = windows.filter(x => x.id !== w.id); renderWindowsLayer(); };
+
+        badge.appendChild(delBtn);
+        stage.appendChild(badge);
+
+        // Explicit JS event binding for window hover
+        const svgGroup = svg.querySelector(`g[data-id="${w.id}"]`);
+        if (svgGroup) {
+            const showBadge = () => badge.classList.add('visible');
+            const hideBadge = () => badge.classList.remove('visible');
+
+            svgGroup.addEventListener('mouseenter', showBadge);
+            svgGroup.addEventListener('mouseleave', hideBadge);
+            badge.addEventListener('mouseenter', showBadge);
+            badge.addEventListener('mouseleave', hideBadge);
+        }
+    });
+}
+
+/* ============ Doorway Vector Geometry & Placement ============ */
+document.getElementById('wallSelectDropdown').addEventListener('change', updatePendingDoorPreview);
+document.getElementById('doorPosSlider').addEventListener('input', updatePendingDoorPreview);
+document.getElementById('doorSizeInput').addEventListener('input', updatePendingDoorPreview);
+document.getElementById('toggleHingeBtn').addEventListener('click', () => {
+    currentPendingFlip = !currentPendingFlip;
+    updatePendingDoorPreview();
+});
 
 function doorGeometry(d, angleOverride){
     const wallInfo = getWallVectorInfo(d.wallIdx);
@@ -1071,160 +1322,6 @@ function doorGeometry(d, angleOverride){
 
 function checkDoorInsideWithAngle(d, swingDeg) {
   const geom = doorGeometry(d, swingDeg);
-  const steps = 20;
-  const hinge = geom.realHinge;
-  const radius = d.sizeUnits;
-
-  const a0 = Math.atan2(
-    geom.realArcStart.y - hinge.y,
-    geom.realArcStart.x - hinge.x
-  );
-  const a1 = Math.atan2(
-    geom.realOpenTip.y - hinge.y,
-    geom.realOpenTip.x - hinge.x
-  );
-
-  let diff = a1 - a0;
-  while (diff > Math.PI) diff -= 2 * Math.PI;
-  while (diff < -Math.PI) diff += 2 * Math.PI;
-
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const ang = a0 + diff * t;
-    const pt = {
-      x: hinge.x + radius * Math.cos(ang),
-      y: hinge.y + radius * Math.sin(ang),
-    };
-    if (!isPointInPolygon(pt, vertices)) return false;
-  }
-
-  return true;
-}
-
-function resolveSmartSwingAngle(d) {
-  if (checkDoorInsideWithAngle(d, 90)) return 90;
-
-  const cornerAngle = getCornerAngleForWall(d.wallIdx, d.flip);
-  if (cornerAngle > 30 && cornerAngle < 170) {
-    if (checkDoorInsideWithAngle(d, cornerAngle)) return cornerAngle;
-  }
-
-  return 90;
-}
-
-function isDoorInsideRoom(d) {
-  const angleToUse = resolveSmartSwingAngle(d);
-  return checkDoorInsideWithAngle(d, angleToUse);
-}
-
-function updatePendingDoorPreview() {
-  const select = document.getElementById("wallSelectDropdown");
-  const wallIdx = parseInt(select.value);
-
-  if (isNaN(wallIdx) || wallIdx < 0) {
-    pendingDoor = null;
-    renderDoorsLayer();
-    return;
-  }
-
-  const wallInfo = getWallVectorInfo(wallIdx);
-  let sizeUnits = parseFloat(document.getElementById("doorSizeInput").value);
-  if (isNaN(sizeUnits) || sizeUnits <= 0) sizeUnits = 3;
-
-  document.getElementById("doorSizeVal").textContent = `${sizeUnits.toFixed(1)} ft`;
-
-  const sliderPct = parseFloat(document.getElementById("doorPosSlider").value) / 100;
-  const maxPos = Math.max(0, wallInfo.len - sizeUnits);
-  const posUnits = sliderPct * maxPos;
-
-  document.getElementById("doorPosVal").textContent = `${Math.round(sliderPct * 100)}%`;
-
-  pendingDoor = {
-    wallIdx,
-    posUnits,
-    sizeUnits,
-    flip: currentPendingFlip,
-    pending: true,
-  };
-
-  pendingDoor.swingAngle = resolveSmartSwingAngle(pendingDoor);
-
-  const geom = doorGeometry(pendingDoor);
-  document.getElementById("sidebarAngleVal").innerHTML = `${geom.effectiveSwingDeg}°`;
-
-  isPendingDoorValid = checkDoorInsideWithAngle(pendingDoor, pendingDoor.swingAngle);
-
-  const hintEl = document.getElementById("doorInfoHint");
-  const addBtn = document.getElementById("addDoorBtn");
-
-  if (!isPendingDoorValid) {
-    hintEl.textContent = "Door extends outside room boundary!";
-    hintEl.classList.add("hint-warning");
-    addBtn.disabled = true;
-  } else {
-    hintEl.textContent = `Wall ${wallIdx + 1} Length: ${round2(wallInfo.len)} ft`;
-    hintEl.classList.remove("hint-warning");
-    addBtn.disabled = false;
-  }
-
-  renderDoorsLayer();
-}
-
-document.getElementById("addDoorBtn").addEventListener("click", function () {
-  if (!pendingDoor) return;
-
-  pendingDoor.swingAngle = resolveSmartSwingAngle(pendingDoor);
-
-  if (!checkDoorInsideWithAngle(pendingDoor, pendingDoor.swingAngle)) {
-    alert("Door extends outside room boundary!");
-    return;
-  }
-
-  doors.push({
-    id: uid(),
-    wallIdx: pendingDoor.wallIdx,
-    posUnits: pendingDoor.posUnits,
-    sizeUnits: pendingDoor.sizeUnits,
-    flip: pendingDoor.flip,
-    swingAngle: pendingDoor.swingAngle,
-  });
-
-  pendingDoor = null;
-  closeAllPanels();
-  renderDoorsLayer();
-});
-
-function resolveSmartSwingAngle(d){
-    if(checkDoorInsideWithAngle(d, 90)){
-        return 90;
-    }
-    const cornerAngle = getCornerAngleForWall(d.wallIdx, d.flip);
-    if(cornerAngle >= 30 && cornerAngle <= 170){
-        if(checkDoorInsideWithAngle(d, cornerAngle)){
-            return cornerAngle;
-        }
-    }
-    return 90;
-}
-
-function pointInsideOrOnEdge(pt, poly) {
-  const eps = 1e-6;
-
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const a = poly[j];
-    const b = poly[i];
-
-    const cross = (b.x - a.x) * (pt.y - a.y) - (b.y - a.y) * (pt.x - a.x);
-    const dot = (pt.x - a.x) * (pt.x - b.x) + (pt.y - a.y) * (pt.y - b.y);
-
-    if (Math.abs(cross) < eps && dot <= eps) return true;
-  }
-
-  return isPointInPolygon(pt, poly);
-}
-
-function checkDoorInsideWithAngle(d, swingDeg) {
-  const geom = doorGeometry(d, swingDeg);
   const hinge = geom.realHinge;
   const radius = d.sizeUnits;
   const steps = 20;
@@ -1256,6 +1353,17 @@ function checkDoorInsideWithAngle(d, swingDeg) {
   return true;
 }
 
+function resolveSmartSwingAngle(d) {
+  if (checkDoorInsideWithAngle(d, 90)) return 90;
+
+  const cornerAngle = getCornerAngleForWall(d.wallIdx, d.flip);
+  if (cornerAngle >= 30 && cornerAngle <= 170) {
+    if (checkDoorInsideWithAngle(d, cornerAngle)) return cornerAngle;
+  }
+
+  return 90;
+}
+
 function updatePendingDoorPreview(){
     const select = document.getElementById('wallSelectDropdown');
     const wallIdx = parseInt(select.value);
@@ -1266,7 +1374,7 @@ function updatePendingDoorPreview(){
     let sizeUnits = parseFloat(document.getElementById('doorSizeInput').value);
     if(isNaN(sizeUnits) || sizeUnits <= 0) sizeUnits = 3;
 
-    document.getElementById('doorSizeVal').textContent = `${sizeUnits} ft`;
+    document.getElementById('doorSizeVal').textContent = `${sizeUnits.toFixed(1)} ft`;
 
     const sliderPct = parseFloat(document.getElementById('doorPosSlider').value) / 100;
 
@@ -1623,6 +1731,7 @@ function startOver(){
     pendingPoint = null;
     closed = false;
     doors = [];
+    windows = [];
     furniture = [];
     selectedFurnId = null;
 

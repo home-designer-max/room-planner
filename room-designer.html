@@ -609,12 +609,17 @@ button:active{
     z-index:2000;
 }
 
-.door-layer{
+.door-layer, .window-layer{
     position:absolute;
     top:0;
     left:0;
     pointer-events:none;
 }
+
+.window-layer{
+    z-index:1001; /* Layer over room boundary line */
+}
+
 /* Room border always stays above furniture */
 .room-stage::after{
     content:"";
@@ -626,7 +631,7 @@ button:active{
     box-sizing:border-box;
 }
 
-.door-delete-btn{
+.door-delete-btn, .window-delete-btn{
     position:absolute;
     width:18px;
     height:18px;
@@ -640,7 +645,7 @@ button:active{
     padding:0;
     cursor:pointer;
     box-shadow:0 2px 4px rgba(0,0,0,0.25);
-    z-index:6;
+    z-index:1005;
 }
 
 .door-flip-btn{
@@ -817,10 +822,10 @@ button:active{
                 <div class="side-panel hidden" id="doorwayPanel">
                     <div class="panel-heading">Choose Wall</div>
                     <div class="wall-options">
-                        <button class="wall-btn" type="button" data-wall="top">Top</button>
-                        <button class="wall-btn" type="button" data-wall="bottom">Bottom</button>
-                        <button class="wall-btn" type="button" data-wall="left">Left</button>
-                        <button class="wall-btn" type="button" data-wall="right">Right</button>
+                        <button class="wall-btn door-wall-btn" type="button" data-wall="top">Top</button>
+                        <button class="wall-btn door-wall-btn" type="button" data-wall="bottom">Bottom</button>
+                        <button class="wall-btn door-wall-btn" type="button" data-wall="left">Left</button>
+                        <button class="wall-btn door-wall-btn" type="button" data-wall="right">Right</button>
                     </div>
 
                     <div class="panel-field">
@@ -829,13 +834,39 @@ button:active{
                     </div>
 
                     <div class="panel-field">
-                        <label>Door size (<span id="doorUnitLabel">ft</span>)</label>
+                        <label>Door size (<span class="doorUnitLabel">ft</span>)</label>
                         <input type="number" id="doorSizeInput" min="0.1" step="0.1" value="3">
                     </div>
 
                     <button class="panel-add-btn" id="addDoorBtn" type="button">Add Door</button>
-                    <div class="collision-warning hidden" id="doorCollisionWarning">Can't place a door there — it overlaps furniture.</div>
+                    <div class="collision-warning hidden" id="doorCollisionWarning">Can't place a door there — it overlaps furniture or another element.</div>
                     <div class="hint-text">Tap the red &times; on a placed door to remove it, or the dark &#8646; button to flip its hinge side.</div>
+                </div>
+
+                <button class="sidebar-btn" id="btnWindow" type="button">&#129887; Add Window</button>
+
+                <div class="side-panel hidden" id="windowPanel">
+                    <div class="panel-heading">Choose Wall</div>
+                    <div class="wall-options">
+                        <button class="wall-btn win-wall-btn" type="button" data-wall="top">Top</button>
+                        <button class="wall-btn win-wall-btn" type="button" data-wall="bottom">Bottom</button>
+                        <button class="wall-btn win-wall-btn" type="button" data-wall="left">Left</button>
+                        <button class="wall-btn win-wall-btn" type="button" data-wall="right">Right</button>
+                    </div>
+
+                    <div class="panel-field">
+                        <label>Position along wall</label>
+                        <input type="range" id="winPosSlider" min="0" max="100" value="50">
+                    </div>
+
+                    <div class="panel-field">
+                        <label>Window width (<span class="winUnitLabel">ft</span>)</label>
+                        <input type="number" id="winSizeInput" min="0.1" step="0.1" value="3">
+                    </div>
+
+                    <button class="panel-add-btn" id="addWindowBtn" type="button">Add Window</button>
+                    <div class="collision-warning hidden" id="winCollisionWarning">Can't place a window there — it overlaps another opening.</div>
+                    <div class="hint-text">Tap the red &times; on a placed window to remove it.</div>
                 </div>
 
                 <button class="sidebar-btn" id="btnFurniture" type="button">&#128715; Add Furniture</button>
@@ -886,6 +917,7 @@ button:active{
                     <div class="stage-frame" id="stageFrame">
                         <div class="room-stage" id="roomStage">
                             <svg id="doorLayer" class="door-layer"></svg>
+                            <svg id="windowLayer" class="window-layer"></svg>
                         </div>
                         <div class="furn-overlay" id="furnOverlay"></div>
                     </div>
@@ -957,12 +989,14 @@ function round2(n){ return Math.round(n * 100) / 100; }
 /* ============ Room state ============ */
 let currentRoom = { width:0, length:0, unit:'ft', step:1, cellPx:30, boxW:0, boxH:0, pxPerUnit:30 };
 let doors = [];
+let windows = [];
 let furniture = [];
 let selectedFurnId = null;
 let pendingDoorWall = null;
 let pendingDoor = null;
+let pendingWinWall = null;
+let pendingWindow = null;
 let pendingFurnType = null;
-let placementCounter = 0;
 
 function uid(){ return 'id' + Math.random().toString(36).slice(2, 9); }
 
@@ -983,12 +1017,14 @@ function submitRoomForm(){
 
     // reset room state for a fresh room
     doors = [];
+    windows = [];
     furniture = [];
     selectedFurnId = null;
     pendingDoorWall = null;
     pendingDoor = null;
+    pendingWinWall = null;
+    pendingWindow = null;
     pendingFurnType = null;
-    placementCounter = 0;
     closeAllPanels();
 
     currentRoom.width = width;
@@ -1000,8 +1036,9 @@ function submitRoomForm(){
     gridInput.value = trimNumber(autoStep);
     gridInput.step = (autoStep < 1) ? 0.1 : (autoStep < 5 ? 0.5 : 1);
     document.getElementById('gridUnitLabel').textContent = unit;
-    document.getElementById('doorUnitLabel').textContent = unit;
+    document.querySelectorAll('.doorUnitLabel, .winUnitLabel').forEach(el => el.textContent = unit);
     document.getElementById('doorSizeInput').value = round2(fromFeet(3, unit));
+    document.getElementById('winSizeInput').value = round2(fromFeet(3, unit));
 
     renderRoomBox(width, length, unit, autoStep);
 
@@ -1079,7 +1116,7 @@ function renderRoomBox(width, length, unit, spacing){
     currentRoom.boxH = boxH;
     currentRoom.pxPerUnit = cellPx / step;
 
-    // clamp existing furniture & doors to stay within new room size
+    // clamp existing furniture, doors & windows to stay within new room size
     furniture.forEach(f => {
         f.xUnits = Math.max(0, Math.min(f.xUnits, Math.max(0, width - f.wUnits)));
         f.yUnits = Math.max(0, Math.min(f.yUnits, Math.max(0, length - f.dUnits)));
@@ -1087,6 +1124,10 @@ function renderRoomBox(width, length, unit, spacing){
     doors.forEach(d => {
         const wallLen = (d.wall === 'top' || d.wall === 'bottom') ? width : length;
         d.posUnits = Math.max(0, Math.min(d.posUnits, Math.max(0, wallLen - d.sizeUnits)));
+    });
+    windows.forEach(w => {
+        const wallLen = (w.wall === 'top' || w.wall === 'bottom') ? width : length;
+        w.posUnits = Math.max(0, Math.min(w.posUnits, Math.max(0, wallLen - w.sizeUnits)));
     });
 
     const stage = document.getElementById('roomStage');
@@ -1104,22 +1145,27 @@ function renderRoomBox(width, length, unit, spacing){
     document.getElementById('visualTitle').textContent = `${width} ${unit} \u00d7 ${length} ${unit} Room`;
 
     renderDoorsLayer();
+    renderWindowsLayer();
     renderFurnitureLayer();
 }
 
 /* ============ Sidebar panel toggling ============ */
 function closeAllPanels(){
     document.getElementById('doorwayPanel').classList.add('hidden');
+    document.getElementById('windowPanel').classList.add('hidden');
     document.getElementById('furniturePanel').classList.add('hidden');
     document.getElementById('bedSizePanel').classList.add('hidden');
     document.getElementById('furnDimsPanel').classList.add('hidden');
     document.getElementById('btnDoorway').classList.remove('active');
+    document.getElementById('btnWindow').classList.remove('active');
     document.getElementById('btnFurniture').classList.remove('active');
     document.querySelectorAll('.wall-btn').forEach(b => b.classList.remove('selected'));
     document.querySelectorAll('.furn-type-btn').forEach(b => b.classList.remove('selected'));
     document.querySelectorAll('.bed-size-btn').forEach(b => b.classList.remove('selected'));
     pendingDoorWall = null;
     pendingDoor = null;
+    pendingWinWall = null;
+    pendingWindow = null;
     pendingFurnType = null;
 }
 
@@ -1132,6 +1178,19 @@ document.getElementById('btnDoorway').addEventListener('click', function(){
         this.classList.add('active');
     }
     renderDoorsLayer();
+    renderWindowsLayer();
+});
+
+document.getElementById('btnWindow').addEventListener('click', function(){
+    const panel = document.getElementById('windowPanel');
+    const isOpen = !panel.classList.contains('hidden');
+    closeAllPanels();
+    if(!isOpen){
+        panel.classList.remove('hidden');
+        this.classList.add('active');
+    }
+    renderDoorsLayer();
+    renderWindowsLayer();
 });
 
 document.getElementById('btnFurniture').addEventListener('click', function(){
@@ -1143,12 +1202,13 @@ document.getElementById('btnFurniture').addEventListener('click', function(){
         this.classList.add('active');
     }
     renderDoorsLayer();
+    renderWindowsLayer();
 });
 
 /* ============ Doorway logic ============ */
-document.querySelectorAll('.wall-btn').forEach(btn => {
+document.querySelectorAll('.door-wall-btn').forEach(btn => {
     btn.addEventListener('click', function(){
-        document.querySelectorAll('.wall-btn').forEach(b => b.classList.remove('selected'));
+        document.querySelectorAll('.door-wall-btn').forEach(b => b.classList.remove('selected'));
         this.classList.add('selected');
         pendingDoorWall = this.dataset.wall;
         document.getElementById('doorPosSlider').value = 50;
@@ -1187,11 +1247,10 @@ document.getElementById('addDoorBtn').addEventListener('click', function(){
     const candidateRect = doorBlockRect(pendingDoor);
     const overlapsFurniture = furniture.some(f => rectsOverlap(candidateRect, furnitureRectPx(f)));
     const overlapsDoor = doors.some(d => rectsOverlap(candidateRect, doorBlockRect(d)));
+    const overlapsWindow = windows.some(w => rectsOverlap(candidateRect, windowBlockRect(w)));
 
-    if(overlapsFurniture || overlapsDoor){
-        warning.textContent = overlapsFurniture
-            ? "Can't place a door there — it overlaps furniture."
-            : "Can't place a door there — it overlaps another door.";
+    if(overlapsFurniture || overlapsDoor || overlapsWindow){
+        warning.textContent = "Can't place a door there — it overlaps another element.";
         warning.classList.remove('hidden');
         return;
     }
@@ -1199,7 +1258,7 @@ document.getElementById('addDoorBtn').addEventListener('click', function(){
 
     doors.push({ id: uid(), wall: pendingDoor.wall, posUnits: pendingDoor.posUnits, sizeUnits: pendingDoor.sizeUnits, flip: pendingDoor.flip });
 
-    document.querySelectorAll('.wall-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('.door-wall-btn').forEach(b => b.classList.remove('selected'));
     pendingDoorWall = null;
     pendingDoor = null;
     renderDoorsLayer();
@@ -1218,10 +1277,6 @@ function doorGeometry(d){
         case 'right':  wallStart = {x:boxW, y:0}; wallDir = {x:0, y:1};  inward = {x:-1, y:0}; break;
     }
 
-    // The door occupies the wall segment from wallStart+posPx to
-    // wallStart+posPx+sizePx. Which end of that segment is the hinge
-    // (and which is the free-swinging edge) is controlled by d.flip,
-    // so a door can be re-hinged without moving its position on the wall.
     const segStart = { x: wallStart.x + wallDir.x*posPx, y: wallStart.y + wallDir.y*posPx };
     const segEnd = { x: segStart.x + wallDir.x*sizePx, y: segStart.y + wallDir.y*sizePx };
 
@@ -1232,10 +1287,6 @@ function doorGeometry(d){
     return { hinge, arcStart, openTip, sizePx, wall:d.wall };
 }
 
-// The rectangular "keep-clear" zone for a door: the axis-aligned bounding
-// box of its quarter-circle swing (a 90-degree sector's bounding box is a
-// square between the hinge and the corner diagonally opposite it).
-// Furniture is not allowed to overlap this zone.
 function doorBlockRect(d){
     const geom = doorGeometry(d);
     const xs = [geom.hinge.x, geom.arcStart.x, geom.openTip.x];
@@ -1245,8 +1296,154 @@ function doorBlockRect(d){
     return { x, y, w: x2 - x, h: y2 - y };
 }
 
-// A tiny epsilon so that items can sit flush edge-to-edge (touching,
-// snapped together) without being flagged as "overlapping".
+/* ============ Window Logic ============ */
+document.querySelectorAll('.win-wall-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('.win-wall-btn').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        pendingWinWall = this.dataset.wall;
+        document.getElementById('winPosSlider').value = 50;
+        updatePendingWindowPreview();
+    });
+});
+
+document.getElementById('winPosSlider').addEventListener('input', updatePendingWindowPreview);
+document.getElementById('winSizeInput').addEventListener('input', updatePendingWindowPreview);
+
+function updatePendingWindowPreview(){
+    document.getElementById('winCollisionWarning').classList.add('hidden');
+    if(!pendingWinWall){ pendingWindow = null; renderWindowsLayer(); return; }
+
+    const unit = currentRoom.unit;
+    const wallLen = (pendingWinWall === 'top' || pendingWinWall === 'bottom') ? currentRoom.width : currentRoom.length;
+    let sizeUnits = parseFloat(document.getElementById('winSizeInput').value);
+    if(isNaN(sizeUnits) || sizeUnits <= 0) sizeUnits = round2(fromFeet(3, unit));
+    sizeUnits = Math.min(sizeUnits, wallLen);
+
+    const sliderPct = parseFloat(document.getElementById('winPosSlider').value) / 100;
+    const maxPos = Math.max(0, wallLen - sizeUnits);
+    const posUnits = sliderPct * maxPos;
+
+    pendingWindow = { wall: pendingWinWall, posUnits, sizeUnits, pending:true };
+    renderWindowsLayer();
+}
+
+document.getElementById('addWindowBtn').addEventListener('click', function(){
+    if(!pendingWindow){
+        updatePendingWindowPreview();
+        if(!pendingWindow) return;
+    }
+
+    const warning = document.getElementById('winCollisionWarning');
+    const candidateRect = windowBlockRect(pendingWindow);
+    const overlapsDoor = doors.some(d => rectsOverlap(candidateRect, doorBlockRect(d)));
+    const overlapsWindow = windows.some(w => rectsOverlap(candidateRect, windowBlockRect(w)));
+
+    if(overlapsDoor || overlapsWindow){
+        warning.textContent = "Can't place a window there — it overlaps another opening.";
+        warning.classList.remove('hidden');
+        return;
+    }
+    warning.classList.add('hidden');
+
+    windows.push({ id: uid(), wall: pendingWindow.wall, posUnits: pendingWindow.posUnits, sizeUnits: pendingWindow.sizeUnits });
+
+    document.querySelectorAll('.win-wall-btn').forEach(b => b.classList.remove('selected'));
+    pendingWinWall = null;
+    pendingWindow = null;
+    renderWindowsLayer();
+});
+
+function windowBlockRect(w){
+    const posPx = w.posUnits * currentRoom.pxPerUnit;
+    const sizePx = w.sizeUnits * currentRoom.pxPerUnit;
+    const depth = 8;
+    
+    switch(w.wall){
+        case 'top':    return { x: posPx, y: 0, w: sizePx, h: depth };
+        case 'bottom': return { x: posPx, y: currentRoom.boxH - depth, w: sizePx, h: depth };
+        case 'left':   return { x: 0, y: posPx, w: depth, h: sizePx };
+        case 'right':  return { x: currentRoom.boxW - depth, y: posPx, w: depth, h: sizePx };
+    }
+}
+
+function windowSvgMarkup(w, pending){
+    const rect = windowBlockRect(w);
+    const fillCol = pending ? 'rgba(173, 216, 230, 0.5)' : '#A2D2FF';
+    const strokeCol = pending ? '#777' : '#2b2b2b';
+    const dash = pending ? '3 3' : 'none';
+
+    let panes = '';
+    if (w.wall === 'top' || w.wall === 'bottom') {
+        const midY = rect.y + rect.h / 2;
+        panes = `<line x1="${rect.x}" y1="${midY}" x2="${rect.x + rect.w}" y2="${midY}" stroke="${strokeCol}" stroke-width="1.2"/>`;
+    } else {
+        const midX = rect.x + rect.w / 2;
+        panes = `<line x1="${midX}" y1="${rect.y}" x2="${midX}" y2="${rect.y + rect.h}" stroke="${strokeCol}" stroke-width="1.2"/>`;
+    }
+
+    return `
+      <rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" fill="#FFFFFF" stroke="none"/>
+      <rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" fill="${fillCol}" stroke="${strokeCol}" stroke-width="1.5" stroke-dasharray="${dash}"/>
+      ${panes}
+    `;
+}
+
+function renderWindowsLayer(){
+    const svg = document.getElementById('windowLayer');
+    svg.setAttribute('width', currentRoom.boxW);
+    svg.setAttribute('height', currentRoom.boxH);
+    svg.setAttribute('viewBox', `0 0 ${currentRoom.boxW} ${currentRoom.boxH}`);
+
+    let content = '';
+    windows.forEach(w => content += windowSvgMarkup(w, false));
+    if (pendingWindow) content += windowSvgMarkup(pendingWindow, true);
+    svg.innerHTML = content;
+
+    document.querySelectorAll('.window-delete-btn').forEach(b => b.remove());
+
+    const stage = document.getElementById('roomStage');
+
+    windows.forEach(w => {
+        const rect = windowBlockRect(w);
+        const btnSize = 18;
+        const delBtn = document.createElement('button');
+        delBtn.className = 'window-delete-btn';
+        delBtn.type = 'button';
+        delBtn.textContent = '×';
+
+        let left, top;
+        switch(w.wall){
+            case 'top':
+                left = rect.x + rect.w / 2 - btnSize / 2;
+                top = 2;
+                break;
+            case 'bottom':
+                left = rect.x + rect.w / 2 - btnSize / 2;
+                top = currentRoom.boxH - btnSize - 2;
+                break;
+            case 'left':
+                left = 2;
+                top = rect.y + rect.h / 2 - btnSize / 2;
+                break;
+            case 'right':
+                left = currentRoom.boxW - btnSize - 2;
+                top = rect.y + rect.h / 2 - btnSize / 2;
+                break;
+        }
+
+        delBtn.style.left = `${left}px`;
+        delBtn.style.top = `${top}px`;
+
+        delBtn.addEventListener('click', function(){
+            windows = windows.filter(x => x.id !== w.id);
+            renderWindowsLayer();
+        });
+
+        stage.appendChild(delBtn);
+    });
+}
+
 function rectsOverlap(a, b, eps){
     eps = eps === undefined ? 0.5 : eps;
     return a.x < b.x + b.w - eps &&
@@ -1261,8 +1458,6 @@ function furnitureRectPx(f){
     return { x: f.xUnits * ppu, y: f.yUnits * ppu, w: eff.wUnits * ppu, h: eff.dUnits * ppu };
 }
 
-// True if a candidate rect (in room-stage px coordinates) would overlap
-// another piece of furniture or a door's keep-clear zone.
 function collidesWithFurnitureOrDoors(rect, excludeFurnId){
     for(const other of furniture){
         if(other.id === excludeFurnId) continue;
@@ -1295,7 +1490,6 @@ function doorSvgMarkup(geom, pending){
     const dash = pending ? '4 3' : 'none';
     const strokeCol = pending ? '#aaa' : '#666';
 
-    // slab rect (grey area of the door itself, sitting on the wall)
     const t = 5;
     let slab;
     if(wall === 'top')    slab = { x: Math.min(hinge.x, arcStart.x), y: 0, w: Math.abs(arcStart.x-hinge.x), h: t };
@@ -1303,8 +1497,6 @@ function doorSvgMarkup(geom, pending){
     else if(wall === 'left') slab = { x: 0, y: Math.min(hinge.y, arcStart.y), w: t, h: Math.abs(arcStart.y-hinge.y) };
     else slab = { x: currentRoom.boxW-t, y: Math.min(hinge.y, arcStart.y), w: t, h: Math.abs(arcStart.y-hinge.y) };
 
-    // small filled dot marking the hinge point, so it's visually clear
-    // which side the door is hinged on
     const hingeDot = `<circle cx="${hinge.x.toFixed(1)}" cy="${hinge.y.toFixed(1)}" r="3" fill="${strokeCol}"/>`;
 
     return `
@@ -1335,12 +1527,8 @@ function renderDoorsLayer() {
     const btnSize = 18;
     const pad = 4;
     const gap = 3;
-    const pairSpan = btnSize * 2 + gap; // total footprint of the two buttons together
+    const pairSpan = btnSize * 2 + gap;
 
-    // Anchor point for the button pair (centered near the hinge), then the
-    // delete + flip buttons are laid out side by side from that anchor.
-    // The PAIR is clamped as a single unit (not each button separately) so
-    // they can never collapse onto the same spot near a wall/corner.
     let pairStart, fixedCoord, horizontal;
     switch (d.wall) {
       case 'top':
@@ -1402,8 +1590,9 @@ function renderDoorsLayer() {
       const rect = doorBlockRect(d);
       const overlapsFurniture = furniture.some(f => rectsOverlap(rect, furnitureRectPx(f)));
       const overlapsDoor = doors.some(other => other.id !== d.id && rectsOverlap(rect, doorBlockRect(other)));
-      if(overlapsFurniture || overlapsDoor){
-        d.flip = prevFlip; // revert, no room to swing the other way
+      const overlapsWindow = windows.some(w => rectsOverlap(rect, windowBlockRect(w)));
+      if(overlapsFurniture || overlapsDoor || overlapsWindow){
+        d.flip = prevFlip; 
         alert("Can't flip this door's hinge — it would swing into something.");
         return;
       }
@@ -1490,15 +1679,12 @@ document.getElementById('addFurnBtn').addEventListener('click', function(){
     addFurnitureItem(pendingFurnType, label, w, d);
 });
 
-// Finds a spot for a new piece of furniture that doesn't overlap any
-// existing furniture or door. Tries the familiar staggered/cascading
-// offsets first, then falls back to scanning the room for any free spot.
 function findFreePlacement(wUnits, dUnits, excludeId){
     const ppu = currentRoom.pxPerUnit;
     const wPx = wUnits * ppu, hPx = dUnits * ppu;
     const roomW = currentRoom.boxW, roomH = currentRoom.boxH;
 
-    if(wPx > roomW + 0.5 || hPx > roomH + 0.5) return null; // doesn't fit at all
+    if(wPx > roomW + 0.5 || hPx > roomH + 0.5) return null;
 
     const margin = 0.3;
     const stepOffset = 0.4;
@@ -1520,7 +1706,7 @@ function findFreePlacement(wUnits, dUnits, excludeId){
         }
     }
 
-    return null; // room is full, no free spot
+    return null;
 }
 
 function addFurnitureItem(type, label, wUnits, dUnits){
@@ -1544,12 +1730,6 @@ function addFurnitureItem(type, label, wUnits, dUnits){
     renderFurnitureLayer();
 }
 
-// A furniture item is only ever rotated in 90-degree steps, so a
-// 90/270-degree rotation is visually identical to simply swapping its
-// width and depth (both are axis-aligned rectangles). We use this as the
-// item's real hitbox/footprint instead of a cosmetic CSS transform, so
-// dragging, wall-snapping, and room-bound clamping all agree with what's
-// actually drawn on screen.
 function effectiveSize(f){
     const swapped = (f.rotation % 180) !== 0;
     return {
@@ -1559,21 +1739,17 @@ function effectiveSize(f){
 }
 
 function computeToolbarPos(xPx, yPx, wPx, hPx){
-    const toolbarW = 56; // 2 buttons (26px) + 4px gap, approx
+    const toolbarW = 56;
     const toolbarH = 26;
     const spacing = 8;
 
     let top = yPx - toolbarH - spacing;
     if(top < 0){
-        // Not enough room above (item is against the top wall) -
-        // place the toolbar below the item instead.
         top = yPx + hPx + spacing;
     }
-    // Clamp vertically so it can't spill past the bottom wall either.
     top = Math.max(0, Math.min(top, currentRoom.boxH - toolbarH));
 
     let left = xPx + wPx / 2 - toolbarW / 2;
-    // Clamp horizontally so it can't spill past the left/right walls.
     left = Math.max(0, Math.min(left, currentRoom.boxW - toolbarW));
 
     return { left, top };
@@ -1602,8 +1778,6 @@ function renderFurnitureLayer(){
         div.style.width = wPx + 'px';
         div.style.height = hPx + 'px';
         div.style.background = FURN_COLORS[f.type] || '#eee';
-        // No CSS rotation here: the box's actual width/height above already
-        // reflect the rotated footprint, so it IS the correct hitbox.
 
         div.innerHTML = `<span>${f.label}</span><span class="furn-sub">${round2(f.wUnits)}${currentRoom.unit} &times; ${round2(f.dUnits)}${currentRoom.unit}</span>`;
 
@@ -1623,8 +1797,6 @@ function renderFurnitureLayer(){
                 const prevRotation = f.rotation;
                 const prevX = f.xUnits, prevY = f.yUnits;
 
-                // Keep the item's center fixed while its footprint swaps
-                // between wide/tall, and make sure it still fits in the room.
                 const before = effectiveSize(f);
                 const centerX = f.xUnits + before.wUnits / 2;
                 const centerY = f.yUnits + before.dUnits / 2;
@@ -1639,14 +1811,11 @@ function renderFurnitureLayer(){
                 const rect = { x: f.xUnits * ppu, y: f.yUnits * ppu, w: after.wUnits * ppu, h: after.dUnits * ppu };
 
                 if(collidesWithFurnitureOrDoors(rect, f.id)){
-                    // The rotated footprint doesn't fit where it was — look
-                    // for the nearest free spot for it instead.
                     const spot = findFreePlacement(after.wUnits, after.dUnits, f.id);
                     if(spot){
                         f.xUnits = spot.x;
                         f.yUnits = spot.y;
                     } else {
-                        // No free space anywhere for the rotated size — don't rotate.
                         f.rotation = prevRotation;
                         f.xUnits = prevX;
                         f.yUnits = prevY;
@@ -1668,9 +1837,6 @@ function renderFurnitureLayer(){
 
             toolbar.appendChild(rotateBtn);
             toolbar.appendChild(delBtn);
-            // Render on the overlay layer (sibling of room-stage, not clipped)
-            // so the buttons stay visible even when furniture sits flush
-            // against a wall.
             overlay.appendChild(toolbar);
 
             const pos = computeToolbarPos(xPx, yPx, wPx, hPx);
@@ -1740,9 +1906,6 @@ function attachDragHandlers(div, f){
             candLeft = Math.max(0, Math.min(candLeft, currentRoom.boxW - wPx));
             candTop = Math.max(0, Math.min(candTop, currentRoom.boxH - hPx));
 
-            // Don't let the item pass through other furniture or doors.
-            // If the full move collides, try sliding along just one axis
-            // (so it glides along the obstacle instead of getting stuck).
             let newLeft = lastValidLeft, newTop = lastValidTop;
             if(freeAt(candLeft, candTop, wPx, hPx)){
                 newLeft = candLeft; newTop = candTop;
@@ -1757,7 +1920,6 @@ function attachDragHandlers(div, f){
             div.style.left = newLeft + 'px';
             div.style.top = newTop + 'px';
 
-            // Keep the toolbar glued to the item while dragging.
             if(f.id === selectedFurnId){
                 const toolbar = document.querySelector('.furn-toolbar');
                 if(toolbar){
@@ -1777,9 +1939,6 @@ function attachDragHandlers(div, f){
                 let xPx = parseFloat(div.style.left), yPx = parseFloat(div.style.top);
                 const snapped = snapPosition(f.id, xPx, yPx, wPx, hPx);
 
-                // Snapping can nudge the item toward another piece of
-                // furniture or a door — only accept the snap if it's
-                // still collision-free, otherwise keep the dragged spot.
                 const finalPos = freeAt(snapped.xPx, snapped.yPx, wPx, hPx) ? snapped : { xPx, yPx };
 
                 div.style.left = finalPos.xPx + 'px';
@@ -1787,8 +1946,6 @@ function attachDragHandlers(div, f){
                 f.xUnits = finalPos.xPx / currentRoom.pxPerUnit;
                 f.yUnits = finalPos.yPx / currentRoom.pxPerUnit;
 
-                // Snapping can nudge the item after the drag ends, so
-                // give the toolbar one final position update to match.
                 if(f.id === selectedFurnId){
                     const toolbar = document.querySelector('.furn-toolbar');
                     if(toolbar){
