@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Irregular Room Designer</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+body{
+    background:#F8F5EE;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:20px;
+}
+
+.container{
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+    width:100%;
+    max-width:1100px;
+    transition:max-width 0.2s;
+}
+
+.hidden{ display:none !important; }
+
+button{
+    height:50px;
+    border:none;
+    border-radius:12px;
+    background:white;
+    color:#444;
+    font-size:16px;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,0.06);
+    transition:0.2s;
+}
+
+button:hover{ transform:translateY(-2px); box-shadow:0 8px 18px rgba(0,0,0,0.12); }
+button:active{ transform:scale(0.98); }
+
+/* ---- Cards ---- */
+.form-card{
+    background:white;
+    border-radius:20px;
+    padding:24px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.08);
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    width:100%;
+}
+
+.form-title{
+    font-size:20px;
+    font-weight:700;
+    color:#2d2d2d;
+    text-align:center;
+    letter-spacing:0.2px;
+}
+
+.dimensions-row{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+}
+
+.field-group{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    min-width:0;
+}
+
+.field-group label{
+    font-size:12px;
+    font-weight:700;
+    color:#8a8a8a;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+}
+
+.field-group input[type="number"],
+.field-group select,
+.field-group input[type="range"]{
+    width:100%;
+    height:46px;
+    border:1.5px solid #e4e2dc;
+    border-radius:12px;
+    padding:0 14px;
+    font-size:14.5px;
+    font-weight:600;
+    color:#333;
+    outline:none;
+    transition:0.2s;
+    background:#FBFAF7;
+}
+
+.field-group input[type="range"]{
+    padding:0 6px;
+    height:36px;
+    cursor:pointer;
+}
+
+.field-group input[type="number"]:focus,
+.field-group select:focus{ border-color:#333; background:white; }
+
+.times-symbol{
+    height:46px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:16px;
+    font-weight:600;
+    color:#bbb;
+}
+
+.hint-text{ font-size:12px; color:#888; text-align:center; font-weight:500; line-height:1.4; }
+.hint-warning{ color:#d32f2f !important; font-weight:700 !important; }
+
+.form-buttons{ display:flex; gap:12px; margin-top:4px; }
+.form-buttons button{ height:48px; font-size:15px; flex:1; border-radius:12px; }
+.btn-secondary{ background:#F1EFE9; color:#555; }
+.btn-secondary:hover{ background:#e8e5dd; }
+.btn-primary{ background:#2d2d2d; color:white; }
+.btn-primary:hover{ background:#1a1a1a; }
+
+/* ---- Grid spacing stepper ---- */
+.grid-control{ width:100%; display:flex; flex-direction:column; gap:7px; }
+.grid-control label{ font-size:12px; font-weight:700; color:#8a8a8a; text-transform:uppercase; letter-spacing:0.4px; }
+.grid-input-row{ display:flex; align-items:center; gap:8px; }
+.grid-stepper{
+    display:flex; align-items:center; background:#FBFAF7; border:1.5px solid #e4e2dc;
+    border-radius:12px; overflow:hidden; flex:1; transition:0.2s;
+}
+.grid-stepper:focus-within{ border-color:#333; background:white; }
+.grid-stepper input[type="number"]{
+    flex:1; width:100%; min-width:0; height:42px; border:none; background:transparent;
+    text-align:center; font-size:15px; font-weight:700; color:#333; outline:none;
+}
+.grid-stepper input[type="number"]::-webkit-outer-spin-button,
+.grid-stepper input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+.stepper-btn{
+    height:42px; width:36px; flex-shrink:0; border:none; background:#F1EFE9; color:#444;
+    font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center;
+    justify-content:center; user-select:none; box-shadow:none; border-radius:0; transition:0.15s;
+}
+.stepper-btn:hover{ background:#e8e5dd; }
+.grid-unit-label{ font-size:13px; font-weight:700; color:#777; min-width:20px; }
+
+/* ---- Stage & Designer Layout ---- */
+.designer-layout{
+    display:flex;
+    gap:20px;
+    width:100%;
+}
+
+.sidebar{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    width:280px;
+    flex-shrink:0;
+}
+
+.sidebar-btn{
+    height:48px;
+    border-radius:12px;
+    background:#F1EFE9;
+    color:#333;
+    font-size:13.5px;
+    font-weight:700;
+    text-align:left;
+    padding:0 16px;
+    box-shadow:none;
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.sidebar-btn:hover{ transform:none; box-shadow:none; background:#e8e5dd; }
+.sidebar-btn.active{ background:#2d2d2d; color:white; }
+
+.side-panel{
+    background:#FBFAF7;
+    border:1.5px solid #EFECE6;
+    border-radius:14px;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+}
+
+.panel-heading{ font-size:11.5px; font-weight:700; color:#8a8a8a; text-transform:uppercase; letter-spacing:0.5px; }
+.panel-field{ display:flex; flex-direction:column; gap:6px; }
+.panel-field label{ font-size:11.5px; font-weight:700; color:#666; display:flex; justify-content:space-between; }
+.panel-field label span{ color:#888; font-weight:600; }
+
+.angle-badge-box{
+    background:#2d2d2d;
+    color:white;
+    border-radius:10px;
+    padding:10px 12px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+}
+.angle-badge-title{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#aaa; }
+.angle-badge-value{ font-size:20px; font-weight:800; color:#4ade80; }
+
+.panel-add-btn{
+    height:42px;
+    border-radius:10px;
+    background:#2d2d2d;
+    color:white;
+    font-size:13px;
+    font-weight:700;
+    box-shadow:none;
+}
+.panel-add-btn:hover{ background:#1a1a1a; transform:none; }
+.panel-add-btn:disabled{ opacity:0.4; cursor:not-allowed; background:#888; }
+
+.furniture-type-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.furn-type-btn{
+    height:40px; border-radius:9px; background:#F1EFE9; color:#555;
+    font-size:12px; font-weight:600; box-shadow:none;
+}
+.furn-type-btn:hover{ transform:none; box-shadow:none; }
+.furn-type-btn.selected{ background:#2d2d2d; color:white; }
+
+.bed-size-options{ display:flex; gap:6px; }
+.bed-size-btn{
+    flex:1; height:38px; border-radius:9px; background:#F1EFE9; color:#555;
+    font-size:11.5px; font-weight:600; box-shadow:none;
+}
+.bed-size-btn.selected{ background:#2d2d2d; color:white; }
+
+.stage-column{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+    min-width:0;
+}
+
+.status-text{
+    font-size:13.5px;
+    font-weight:600;
+    color:#333;
+    text-align:center;
+    background:#F1EFE9;
+    border-radius:12px;
+    padding:12px;
+    width:100%;
+}
+
+.stage-frame{
+    position:relative;
+    width:100%;
+    height:62vh;
+    min-height:420px;
+    max-height:720px;
+    background:#FBFDFC;
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow: inset 0 0 0 1.5px #e4e2dc;
+}
+
+.room-stage{
+    position:relative;
+    width:100%;
+    height:100%;
+    cursor:crosshair;
+    overflow:hidden;
+}
+
+.draw-svg, .door-layer{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+}
+
+.door-layer{ pointer-events:none; z-index:50; }
+.furn-overlay{ position:absolute; inset:0; pointer-events:none; z-index:2000; }
+
+.draw-controls{ display:flex; gap:10px; width:100%; }
+.draw-controls button{
+    flex:1; height:46px; border-radius:12px; font-size:13px; font-weight:700;
+    background:#F1EFE9; color:#333; box-shadow:none;
+}
+.draw-controls button:hover{ transform:none; box-shadow:none; background:#e8e5dd; }
+.draw-controls button:disabled{ opacity:0.4; cursor:not-allowed; }
+.draw-controls button.primary-action{ background:#2d2d2d; color:white; }
+
+.segment-panel{
+    background:#FBFAF7;
+    border:1.5px solid #eee;
+    border-radius:14px;
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    width:100%;
+}
+
+/* ---- Door Controls ---- */
+.door-control-badge{
+    position:absolute;
+    display:flex;
+    gap:4px;
+    z-index:100;
+    transform:translate(-50%, -50%);
+}
+.door-delete-btn, .door-flip-btn{
+    width:24px; height:24px; border-radius:50%;
+    color:white; border:none; font-size:11px; font-weight:bold;
+    display:flex; align-items:center; justify-content:center;
+    padding:0; cursor:pointer;
+    box-shadow:0 2px 6px rgba(0,0,0,0.25);
+}
+.door-delete-btn{ background:#c0392b; }
+.door-flip-btn{ background:#2d2d2d; }
+
+/* ---- Furniture elements ---- */
+.furn-item{
+    position:absolute; border-radius:6px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; font-size:10.5px; font-weight:700;
+    color:#333; text-align:center; cursor:grab; user-select:none; padding:2px;
+    line-height:1.15; z-index:10;
+    box-shadow: inset 0 0 0 1.5px rgba(0,0,0,0.25);
+    touch-action:none;
+}
+.furn-item:active{ cursor:grabbing; }
+.furn-item.selected{
+    box-shadow: inset 0 0 0 1.5px rgba(0,0,0,0.25), inset 0 0 0 3px #2d2d2d;
+    z-index:20;
+}
+.furn-sub{ font-size:8.5px; font-weight:600; color:#666; }
+
+.furn-toolbar{
+    position:absolute; display:flex; gap:4px; pointer-events:auto; z-index:3000;
+}
+.furn-toolbar button{
+    width:26px; height:26px; border-radius:50%; background:#2d2d2d; color:white;
+    border:none; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,0.25); cursor:pointer;
+    padding:0; display:flex; align-items:center; justify-content:center;
+}
+
+/* ---- Finished card ---- */
+.area-note{ font-size:14px; color:#555; font-weight:700; text-align:center; }
+.wall-list{ display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:8px; width:100%; }
+.wall-list-item{
+    font-size:12px; font-weight:600; color:#555; background:#F1EFE9;
+    border-radius:8px; padding:8px 10px; text-align:center;
+}
+
+/* ---- Modal ---- */
+.modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.35);
+    display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px;
+}
+.modal-card{
+    background:white; border-radius:18px; padding:24px; max-width:320px; width:100%;
+    display:flex; flex-direction:column; gap:16px; box-shadow:0 10px 30px rgba(0,0,0,0.2);
+}
+.modal-title{ font-size:17px; font-weight:700; color:#2d2d2d; text-align:center; }
+.modal-text{ font-size:13.5px; color:#666; text-align:center; line-height:1.4; }
+.modal-buttons{ display:flex; gap:10px; }
+.modal-buttons button{ flex:1; height:46px; border-radius:11px; font-size:14px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- Drawing Step -->
+    <div class="form-card" id="drawCard">
+        <div class="form-title">Sketch Your Room</div>
+
+        <div class="status-text" id="drawStatus">Tap anywhere on the grid to place your first corner.</div>
+
+        <div class="stage-frame" id="drawFrame">
+            <div class="room-stage" id="drawStage">
+                <svg id="drawSvg" class="draw-svg"></svg>
+            </div>
+        </div>
+
+        <div class="segment-panel hidden" id="segmentPanel">
+            <div class="panel-heading">New Wall Length &amp; Angle</div>
+            <div class="dimensions-row">
+                <div class="field-group">
+                    <label>Length (ft)</label>
+                    <input type="number" id="segLengthInput" min="0.01" step="0.1">
+                </div>
+                <div class="field-group">
+                    <label>Direction (&deg;)</label>
+                    <input type="number" id="segAngleInput" step="1">
+                </div>
+            </div>
+            <div class="hint-text">0&deg; = right, 90&deg; = down, 180&deg; = left, 270&deg; = up</div>
+            <button class="btn-primary" style="height:44px;font-size:14px;border-radius:10px;" id="segConfirmBtn">Confirm Wall</button>
+        </div>
+
+        <div class="draw-controls">
+            <button id="undoBtn">Undo</button>
+            <button id="resetShapeBtn">Reset</button>
+            <button class="primary-action" id="closePolyBtn">Close Polygon</button>
+        </div>
+
+        <div class="grid-control">
+            <label>Grid Lines Every</label>
+            <div class="grid-input-row">
+                <div class="grid-stepper">
+                    <button type="button" class="stepper-btn" id="gridDecrease">&#9660;</button>
+                    <input type="number" id="gridSpacingInput" min="0.1" step="1" value="1">
+                    <button type="button" class="stepper-btn" id="gridIncrease">&#9650;</button>
+                </div>
+                <span class="grid-unit-label">ft</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Finished Stage + Furniture Designer -->
+    <div class="form-card hidden" id="finishedCard">
+        <div class="form-title">Your Room Design</div>
+
+        <div class="designer-layout">
+            <!-- Sidebar for Doors & Furniture -->
+            <div class="sidebar">
+                <button class="sidebar-btn" id="btnDoorway" type="button">&#128682; Add Doorway</button>
+
+                <div class="side-panel hidden" id="doorwayPanel">
+                    <div class="panel-heading">Configure Doorway</div>
+
+                    <div class="panel-field">
+                        <label>Select Wall</label>
+                        <select id="wallSelectDropdown"></select>
+                    </div>
+
+                    <div class="panel-field">
+                        <label>Door Size <span id="doorSizeVal">3.0 ft</span></label>
+                        <input type="number" id="doorSizeInput" min="0.5" step="0.5" value="3">
+                    </div>
+
+                    <div class="panel-field">
+                        <label>Position Along Wall <span id="doorPosVal">50%</span></label>
+                        <input type="range" id="doorPosSlider" min="0" max="100" value="50">
+                    </div>
+
+                    <div class="panel-field" style="flex-direction:row; justify-content:space-between; align-items:center;">
+                        <label style="margin:0;">Flip Hinge Side</label>
+                        <button type="button" id="toggleHingeBtn" class="btn-secondary" style="height:32px; padding:0 12px; font-size:12px;">Flip Side</button>
+                    </div>
+
+                    <!-- Dynamic Swing Angle Badge -->
+                    <div class="angle-badge-box">
+                        <span class="angle-badge-title">Door Swing Angle</span>
+                        <span class="angle-badge-value" id="sidebarAngleVal">90&deg;</span>
+                    </div>
+
+                    <div class="hint-text" id="doorInfoHint">Wall length: -- ft</div>
+
+                    <button class="panel-add-btn" id="addDoorBtn" type="button">Add Door to Room</button>
+                </div>
+
+                <button class="sidebar-btn" id="btnFurniture" type="button">&#128715; Add Furniture</button>
+
+                <div class="side-panel hidden" id="furniturePanel">
+                    <div class="panel-heading">Choose Item</div>
+                    <div class="furniture-type-grid">
+                        <button class="furn-type-btn" type="button" data-type="bed">Bed</button>
+                        <button class="furn-type-btn" type="button" data-type="cupboard">Cupboard</button>
+                        <button class="furn-type-btn" type="button" data-type="sidetable">Side Table</button>
+                        <button class="furn-type-btn" type="button" data-type="studytable">Study Table</button>
+                        <button class="furn-type-btn" type="button" data-type="chair">Chair</button>
+                        <button class="furn-type-btn" type="button" data-type="sofa">Sofa</button>
+                    </div>
+
+                    <div class="side-panel hidden" id="bedSizePanel" style="padding:0;border:none;background:transparent;">
+                        <div class="panel-heading">Bed Size</div>
+                        <div class="bed-size-options">
+                            <button class="bed-size-btn" type="button" data-size="queen">Queen</button>
+                            <button class="bed-size-btn" type="button" data-size="king">King</button>
+                            <button class="bed-size-btn" type="button" data-size="custom">Custom</button>
+                        </div>
+                    </div>
+
+                    <div class="side-panel hidden" id="furnDimsPanel" style="padding:0;border:none;background:transparent;">
+                        <div class="dimensions-row">
+                            <div class="field-group">
+                                <label>Width</label>
+                                <input type="number" id="furnWidthInput" min="0.1" step="0.1">
+                            </div>
+                            <div class="times-symbol">&times;</div>
+                            <div class="field-group">
+                                <label>Depth</label>
+                                <input type="number" id="furnDepthInput" min="0.1" step="0.1">
+                            </div>
+                        </div>
+                        <button class="panel-add-btn" id="addFurnBtn" type="button" style="margin-top:8px;width:100%;">Add to Room</button>
+                    </div>
+
+                    <div class="hint-text">Drag items inside room. Select item to rotate or delete.</div>
+                </div>
+            </div>
+
+            <!-- Main Canvas Viewport -->
+            <div class="stage-column">
+                <div class="stage-frame" id="finishedFrame">
+                    <div class="room-stage" id="finishedStage">
+                        <svg id="finishedSvg" class="draw-svg"></svg>
+                        <svg id="doorLayer" class="door-layer"></svg>
+                        <div class="furn-overlay" id="furnOverlay"></div>
+                    </div>
+                </div>
+                <div class="area-note" id="finishedArea"></div>
+            </div>
+        </div>
+
+        <div class="wall-list" id="wallList"></div>
+
+        <div class="form-buttons">
+            <button class="btn-secondary" onclick="editShape()">Edit Shape</button>
+            <button class="btn-primary" onclick="startOver()">Start Over</button>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay hidden" id="closeModal">
+    <div class="modal-card">
+        <div class="modal-title">Close the Shape?</div>
+        <div class="modal-text" id="closeLengthText"></div>
+        <div class="modal-buttons">
+            <button class="btn-secondary" id="closeCancelBtn">Cancel</button>
+            <button class="btn-primary" id="closeConfirmBtn">Confirm &amp; Finish</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ============ Helper Functions ============ */
+function round2(n){ return Math.round(n*100)/100; }
+function uid(){ return 'id' + Math.random().toString(36).slice(2, 9); }
+
+/* ============ State ============ */
+let vertices = [];       // Real world coordinates in feet {x, y}
+let pendingPoint = null;
+let closed = false;
+
+let doors = [];
+let furniture = [];
+let selectedFurnId = null;
+let pendingDoor = null;
+let isPendingDoorValid = true;
+let pendingFurnType = null;
+let currentPendingFlip = false;
+
+let viewTransform = {
+    scale: 25,       
+    centerX: 0,      
+    centerY: 0       
+};
+
+let gridSpacing = 1;
+
+const FURN_DEFAULTS_FT = {
+    cupboard:  { w:2,   d:1.5, label:'Cupboard' },
+    sidetable: { w:1.5, d:1.5, label:'Side Table' },
+    studytable:{ w:4,   d:2,   label:'Study Table' },
+    chair:     { w:1.6, d:1.6, label:'Chair' },
+    sofa:      { w:6,   d:2.5, label:'Sofa' }
+};
+
+const BED_SIZES_FT = {
+    queen: { w:5, d:6.67, label:'Queen Bed' },
+    king:  { w:6.33, d:6.67, label:'King Bed' }
+};
+
+const FURN_COLORS = {
+    bed:'#FDE3E3', cupboard:'#E3EAFD', sidetable:'#FFF2CF',
+    studytable:'#DFF3DD', chair:'#F1E3FD', sofa:'#E1F3FD'
+};
+
+/* ============ Viewport Transforms ============ */
+function getStageBox(stageId){
+    const el = document.getElementById(stageId);
+    return { w: el.clientWidth, h: el.clientHeight };
+}
+
+function realToScreen(pt, stageId = 'drawStage'){
+    const box = getStageBox(stageId);
+    return {
+        x: box.w / 2 + (pt.x - viewTransform.centerX) * viewTransform.scale,
+        y: box.h / 2 + (pt.y - viewTransform.centerY) * viewTransform.scale
+    };
+}
+
+function screenToReal(screenX, screenY, stageId = 'drawStage'){
+    const box = getStageBox(stageId);
+    return {
+        x: viewTransform.centerX + (screenX - box.w / 2) / viewTransform.scale,
+        y: viewTransform.centerY + (screenY - box.h / 2) / viewTransform.scale
+    };
+}
+
+function getRoomBoundingBox(){
+    if(!vertices.length) return { minX:0, maxX:0, minY:0, maxY:0, width:0, height:0 };
+    let minX = vertices[0].x, maxX = vertices[0].x;
+    let minY = vertices[0].y, maxY = vertices[0].y;
+    vertices.forEach(v => {
+        minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x);
+        minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
+    });
+    return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
+}
+
+function fitViewToVertices(verts, stageId = 'drawStage'){
+    if(verts.length === 0) return;
+    const box = getStageBox(stageId);
+    const bounds = getRoomBoundingBox();
+
+    viewTransform.centerX = (bounds.minX + bounds.maxX) / 2;
+    viewTransform.centerY = (bounds.minY + bounds.maxY) / 2;
+
+    const spanX = Math.max(bounds.width, 5);
+    const spanY = Math.max(bounds.height, 5);
+
+    const padding = 80;
+    const scaleX = (box.w - padding) / spanX;
+    const scaleY = (box.h - padding) / spanY;
+
+    viewTransform.scale = Math.max(10, Math.min(scaleX, scaleY));
+}
+
+/* ============ Drawing Grid Logic ============ */
+function renderDrawing(){
+    const stage = document.getElementById('drawStage');
+    const box = getStageBox('drawStage');
+    const svg = document.getElementById('drawSvg');
+
+    svg.setAttribute('width', box.w);
+    svg.setAttribute('height', box.h);
+    svg.setAttribute('viewBox', `0 0 ${box.w} ${box.h}`);
+
+    const cellPx = gridSpacing * viewTransform.scale;
+    const originScreen = realToScreen({x: 0, y: 0}, 'drawStage');
+
+    stage.style.backgroundImage =
+        `repeating-linear-gradient(to right, #dfe6e0 0, #dfe6e0 1px, transparent 1px, transparent ${cellPx}px),` +
+        `repeating-linear-gradient(to bottom, #dfe6e0 0, #dfe6e0 1px, transparent 1px, transparent ${cellPx}px)`;
+    stage.style.backgroundPosition = `${originScreen.x % cellPx}px ${originScreen.y % cellPx}px`;
+
+    let content = '';
+
+    if(vertices.length > 1){
+        const pts = vertices.map(v => {
+            const s = realToScreen(v, 'drawStage');
+            return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;
+        }).join(' ');
+        content += `<polyline points="${pts}" fill="none" stroke="#2d2d2d" stroke-width="2.5"/>`;
+    }
+
+    vertices.forEach((v, i) => {
+        const s = realToScreen(v, 'drawStage');
+        content += (i === 0) ?
+            `<circle cx="${s.x}" cy="${s.y}" r="6" fill="#fff" stroke="#2d2d2d" stroke-width="2.5"/>` :
+            `<circle cx="${s.x}" cy="${s.y}" r="4" fill="#2d2d2d"/>`;
+    });
+
+    if(pendingPoint && vertices.length > 0){
+        const last = realToScreen(vertices[vertices.length - 1], 'drawStage');
+        const curr = realToScreen(pendingPoint, 'drawStage');
+        content += `<line x1="${last.x}" y1="${last.y}" x2="${curr.x}" y2="${curr.y}" stroke="#888" stroke-width="2" stroke-dasharray="5 4"/>`;
+        content += `<circle cx="${curr.x}" cy="${curr.y}" r="4" fill="#888"/>`;
+    }
+
+    svg.innerHTML = content;
+}
+
+document.getElementById('drawStage').addEventListener('click', function(e){
+    if(closed) return;
+    const rect = this.getBoundingClientRect();
+    let realPt = screenToReal(e.clientX - rect.left, e.clientY - rect.top, 'drawStage');
+
+    realPt.x = Math.round(realPt.x / gridSpacing) * gridSpacing;
+    realPt.y = Math.round(realPt.y / gridSpacing) * gridSpacing;
+
+    if(vertices.length === 0){
+        vertices.push(realPt);
+        pendingPoint = null;
+        renderDrawing();
+        updateStatus();
+        return;
+    }
+
+    const last = vertices[vertices.length - 1];
+    const dx = realPt.x - last.x, dy = realPt.y - last.y;
+    if(Math.abs(dx) < 1e-5 && Math.abs(dy) < 1e-5) return;
+
+    if(vertices.length >= 3 && Math.abs(realPt.x - vertices[0].x) < 1e-5 && Math.abs(realPt.y - vertices[0].y) < 1e-5){
+        pendingPoint = null;
+        document.getElementById('segmentPanel').classList.add('hidden');
+        attemptClose();
+        return;
+    }
+
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const angleDeg = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360;
+    pendingPoint = { x: realPt.x, y: realPt.y, dist, angleDeg };
+
+    document.getElementById('segLengthInput').value = round2(dist);
+    document.getElementById('segAngleInput').value = round2(angleDeg);
+    document.getElementById('segmentPanel').classList.remove('hidden');
+
+    renderDrawing();
+    updateStatus();
+});
+
+function updatePendingFromInputs(){
+    if(!pendingPoint) return;
+    const last = vertices[vertices.length - 1];
+    const len = parseFloat(document.getElementById('segLengthInput').value);
+    const ang = parseFloat(document.getElementById('segAngleInput').value);
+    if(isNaN(len) || isNaN(ang)) return;
+    const rad = ang * Math.PI / 180;
+    pendingPoint.x = last.x + len * Math.cos(rad);
+    pendingPoint.y = last.y + len * Math.sin(rad);
+    pendingPoint.dist = len;
+    pendingPoint.angleDeg = ((ang % 360) + 360) % 360;
+    renderDrawing();
+}
+document.getElementById('segLengthInput').addEventListener('input', updatePendingFromInputs);
+document.getElementById('segAngleInput').addEventListener('input', updatePendingFromInputs);
+
+document.getElementById('segConfirmBtn').addEventListener('click', function(){
+    if(!pendingPoint) return;
+
+    const len = parseFloat(document.getElementById('segLengthInput').value);
+    const ang = parseFloat(document.getElementById('segAngleInput').value);
+    if(isNaN(len) || len <= 0){ alert('Enter a valid wall length.'); return; }
+
+    const last = vertices[vertices.length - 1];
+    const rad = ang * Math.PI / 180;
+    vertices.push({ x: last.x + len * Math.cos(rad), y: last.y + len * Math.sin(rad) });
+    pendingPoint = null;
+
+    fitViewToVertices(vertices, 'drawStage');
+    document.getElementById('segmentPanel').classList.add('hidden');
+    renderDrawing();
+    updateStatus();
+});
+
+document.getElementById('undoBtn').addEventListener('click', function(){
+    if(pendingPoint){
+        pendingPoint = null;
+        document.getElementById('segmentPanel').classList.add('hidden');
+    } else if(vertices.length > 0){
+        vertices.pop();
+    }
+    if(vertices.length > 0) fitViewToVertices(vertices, 'drawStage');
+    renderDrawing();
+    updateStatus();
+});
+
+document.getElementById('resetShapeBtn').addEventListener('click', function(){
+    vertices = [];
+    pendingPoint = null;
+    closed = false;
+    document.getElementById('segmentPanel').classList.add('hidden');
+    renderDrawing();
+    updateStatus();
+});
+
+document.getElementById('closePolyBtn').addEventListener('click', attemptClose);
+
+function attemptClose(){
+    if(vertices.length < 3){ alert('At least 3 corners are needed to close room.'); return; }
+    const last = vertices[vertices.length - 1];
+    const first = vertices[0];
+    const dist = Math.sqrt((first.x-last.x)**2 + (first.y-last.y)**2);
+
+    document.getElementById('closeLengthText').textContent =
+        `This connects your final wall (${round2(dist)} ft long) back to the starting corner.`;
+    document.getElementById('closeModal').classList.remove('hidden');
+}
+
+document.getElementById('closeCancelBtn').addEventListener('click', () => {
+    document.getElementById('closeModal').classList.add('hidden');
+});
+
+document.getElementById('closeConfirmBtn').addEventListener('click', () => {
+    closed = true;
+    document.getElementById('closeModal').classList.add('hidden');
+    finalizeShape();
+});
+
+/* ============ Polygon Geometry Math ============ */
+function polygonArea(verts){
+    let sum = 0, n = verts.length;
+    for(let i=0; i<n; i++){
+        const a = verts[i], b = verts[(i+1)%n];
+        sum += a.x*b.y - b.x*a.y;
+    }
+    return Math.abs(sum)/2;
+}
+
+function isPointInPolygon(p, verts){
+    let inside = false;
+    const n = verts.length;
+    for(let i=0, j=n-1; i<n; j=i++){
+        const xi = verts[i].x, yi = verts[i].y;
+        const xj = verts[j].x, yj = verts[j].y;
+        const intersect = ((yi > p.y) !== (yj > p.y)) &&
+            (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+        if(intersect) inside = !inside;
+    }
+    return inside;
+}
+
+function isRectInsidePolygon(rect, verts){
+    const margin = 0.02;
+    const pts = [
+        {x: rect.x + margin, y: rect.y + margin},
+        {x: rect.x + rect.w - margin, y: rect.y + margin},
+        {x: rect.x + rect.w - margin, y: rect.y + rect.h - margin},
+        {x: rect.x + margin, y: rect.y + rect.h - margin}
+    ];
+    for(let pt of pts){
+        if(!isPointInPolygon(pt, verts)) return false;
+    }
+    return true;
+}
+
+/* ============ Corner Angle Calculation ============ */
+function getCornerInteriorAngle(vIdx){
+    const n = vertices.length;
+    const Vk = vertices[vIdx];
+    const Vprev = vertices[(vIdx - 1 + n) % n];
+    const Vnext = vertices[(vIdx + 1) % n];
+
+    const ux = Vprev.x - Vk.x, uy = Vprev.y - Vk.y;
+    const vx = Vnext.x - Vk.x, vy = Vnext.y - Vk.y;
+
+    const lenU = Math.sqrt(ux*ux + uy*uy);
+    const lenV = Math.sqrt(vx*vx + vy*vy);
+
+    if(lenU === 0 || lenV === 0) return 90;
+
+    const dot = (ux*vx + uy*vy) / (lenU * lenV);
+    const clampedDot = Math.max(-1, Math.min(1, dot));
+
+    const angU = Math.atan2(uy, ux);
+    let angV = Math.atan2(vy, vx);
+    
+    let diff = angV - angU;
+    while(diff < 0) diff += 2 * Math.PI;
+    while(diff >= 2 * Math.PI) diff -= 2 * Math.PI;
+
+    const midAng = angU + diff / 2;
+    const eps = 0.1;
+    const testPt = { x: Vk.x + eps * Math.cos(midAng), y: Vk.y + eps * Math.sin(midAng) };
+
+    if(isPointInPolygon(testPt, vertices)){
+        return Math.round(diff * 180 / Math.PI);
+    } else {
+        return Math.round((2 * Math.PI - diff) * 180 / Math.PI);
+    }
+}
+
+function getCornerAngleForWall(wallIdx, flip){
+    const n = vertices.length;
+    const cornerIdx = flip ? (wallIdx + 1) % n : wallIdx;
+    return getCornerInteriorAngle(cornerIdx);
+}
+
+/* ============ Finalize Room ============ */
+function finalizeShape(){
+    document.getElementById('drawCard').classList.add('hidden');
+    document.getElementById('finishedCard').classList.remove('hidden');
+
+    const select = document.getElementById('wallSelectDropdown');
+    select.innerHTML = '';
+    const n = vertices.length;
+    vertices.forEach((v, i) => {
+        const next = vertices[(i + 1) % n];
+        const len = Math.sqrt((next.x - v.x)**2 + (next.y - v.y)**2);
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `Wall ${i+1} (${round2(len)} ft)`;
+        select.appendChild(opt);
+    });
+
+    closeAllPanels();
+    renderFinishedRoom();
+}
+
+function renderFinishedRoom(){
+    fitViewToVertices(vertices, 'finishedStage');
+
+    const box = getStageBox('finishedStage');
+    const svg = document.getElementById('finishedSvg');
+    svg.setAttribute('width', box.w);
+    svg.setAttribute('height', box.h);
+    svg.setAttribute('viewBox', `0 0 ${box.w} ${box.h}`);
+
+    const screenPts = vertices.map(v => {
+        const s = realToScreen(v, 'finishedStage');
+        return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;
+    }).join(' ');
+
+    const cellPx = gridSpacing * viewTransform.scale;
+    const originScreen = realToScreen({x: 0, y: 0}, 'finishedStage');
+
+    svg.innerHTML = `
+        <defs>
+            <clipPath id="roomClip">
+                <polygon points="${screenPts}" />
+            </clipPath>
+            <pattern id="gridPattern" width="${cellPx}" height="${cellPx}" patternUnits="userSpaceOnUse"
+                     x="${originScreen.x % cellPx}" y="${originScreen.y % cellPx}">
+                <path d="M ${cellPx} 0 L 0 0 0 ${cellPx}" fill="none" stroke="#dfe6e0" stroke-width="1"/>
+            </pattern>
+        </defs>
+        <rect x="0" y="0" width="${box.w}" height="${box.h}" fill="#FBFDFC" clip-path="url(#roomClip)"/>
+        <rect x="0" y="0" width="${box.w}" height="${box.h}" fill="url(#gridPattern)" clip-path="url(#roomClip)"/>
+        <polygon points="${screenPts}" fill="none" stroke="#2d2d2d" stroke-width="2.5"/>
+    `;
+
+    document.getElementById('finishedArea').textContent =
+        `Area: ${round2(polygonArea(vertices))} sq ft`;
+
+    const wallListEl = document.getElementById('wallList');
+    wallListEl.innerHTML = '';
+    vertices.forEach((a, i) => {
+        const b = vertices[(i+1) % vertices.length];
+        const d = Math.sqrt((b.x-a.x)**2 + (b.y-a.y)**2);
+        const item = document.createElement('div');
+        item.className = 'wall-list-item';
+        item.textContent = `Wall ${i+1}: ${round2(d)} ft`;
+        wallListEl.appendChild(item);
+    });
+
+    renderDoorsLayer();
+    renderFurnitureLayer();
+}
+
+window.addEventListener('resize', () => {
+    if(!document.getElementById('drawCard').classList.contains('hidden')){
+        renderDrawing();
+    } else if(!document.getElementById('finishedCard').classList.contains('hidden')){
+        renderFinishedRoom();
+    }
+});
+
+/* ============ Sidebar UI ============ */
+function closeAllPanels(){
+    document.getElementById('doorwayPanel').classList.add('hidden');
+    document.getElementById('furniturePanel').classList.add('hidden');
+    document.getElementById('bedSizePanel').classList.add('hidden');
+    document.getElementById('furnDimsPanel').classList.add('hidden');
+    document.getElementById('btnDoorway').classList.remove('active');
+    document.getElementById('btnFurniture').classList.remove('active');
+    pendingDoor = null;
+    renderDoorsLayer();
+}
+
+document.getElementById('btnDoorway').addEventListener('click', function(){
+    const panel = document.getElementById('doorwayPanel');
+    const isOpen = !panel.classList.contains('hidden');
+    closeAllPanels();
+    if(!isOpen){
+        panel.classList.remove('hidden');
+        this.classList.add('active');
+        updatePendingDoorPreview();
+    }
+});
+
+document.getElementById('btnFurniture').addEventListener('click', function(){
+    const panel = document.getElementById('furniturePanel');
+    const isOpen = !panel.classList.contains('hidden');
+    closeAllPanels();
+    if(!isOpen){
+        panel.classList.remove('hidden');
+        this.classList.add('active');
+    }
+});
+
+/* ============ Doorway Vector Geometry & Placement ============ */
+document.getElementById('wallSelectDropdown').addEventListener('change', updatePendingDoorPreview);
+document.getElementById('doorPosSlider').addEventListener('input', updatePendingDoorPreview);
+document.getElementById('doorSizeInput').addEventListener('input', updatePendingDoorPreview);
+document.getElementById('toggleHingeBtn').addEventListener('click', () => {
+    currentPendingFlip = !currentPendingFlip;
+    updatePendingDoorPreview();
+});
+
+function getWallVectorInfo(wallIdx){
+    const n = vertices.length;
+    const p1 = vertices[wallIdx];
+    const p2 = vertices[(wallIdx + 1) % n];
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    const ux = dx / len, uy = dy / len;
+
+    let nx = -uy, ny = ux;
+    const testPt = {
+        x: (p1.x + p2.x)/2 + nx * 0.1,
+        y: (p1.y + p2.y)/2 + ny * 0.1
+    };
+    if(!isPointInPolygon(testPt, vertices)){
+        nx = -nx; ny = -ny;
+    }
+
+    return { p1, p2, len, ux, uy, nx, ny };
+}
+
+function doorGeometry(d, angleOverride){
+    const wallInfo = getWallVectorInfo(d.wallIdx);
+
+    const startU = d.posUnits;
+    const endU = d.posUnits + d.sizeUnits;
+
+    const realP1 = { x: wallInfo.p1.x + wallInfo.ux * startU, y: wallInfo.p1.y + wallInfo.uy * startU };
+    const realP2 = { x: wallInfo.p1.x + wallInfo.ux * endU, y: wallInfo.p1.y + wallInfo.uy * endU };
+
+    const realHinge = d.flip ? realP2 : realP1;
+    const realArcStart = d.flip ? realP1 : realP2;
+
+    const effectiveSwingDeg = angleOverride !== undefined ? angleOverride : (d.swingAngle || 90);
+    const swingRad = effectiveSwingDeg * Math.PI / 180;
+
+    const wallDirRad = Math.atan2(wallInfo.uy, wallInfo.ux);
+    const perpSign = ((Math.atan2(wallInfo.ny, wallInfo.nx) - wallDirRad + 3*Math.PI) % (2*Math.PI)) - Math.PI > 0 ? 1 : -1;
+
+    const baseRad = d.flip ? Math.atan2(-wallInfo.uy, -wallInfo.ux) : Math.atan2(wallInfo.uy, wallInfo.ux);
+    const finalAngleRad = baseRad + perpSign * (d.flip ? -swingRad : swingRad);
+
+    const realOpenTip = {
+        x: realHinge.x + d.sizeUnits * Math.cos(finalAngleRad),
+        y: realHinge.y + d.sizeUnits * Math.sin(finalAngleRad)
+    };
+
+    const p1 = realToScreen(realP1, 'finishedStage');
+    const p2 = realToScreen(realP2, 'finishedStage');
+    const hinge = d.flip ? p2 : p1;
+    const arcStart = d.flip ? p1 : p2;
+    const sizePx = d.sizeUnits * viewTransform.scale;
+
+    const openTip = {
+        x: hinge.x + sizePx * Math.cos(finalAngleRad),
+        y: hinge.y + sizePx * Math.sin(finalAngleRad)
+    };
+
+    return { hinge, arcStart, openTip, sizePx, p1, p2, realP1, realP2, realHinge, realArcStart, realOpenTip, wallInfo, effectiveSwingDeg };
+}
+
+function checkDoorInsideWithAngle(d, swingDeg){
+    const geom = doorGeometry(d, swingDeg);
+
+    const a0 = Math.atan2(geom.realArcStart.y - geom.realHinge.y, geom.realArcStart.x - geom.realHinge.x);
+    const a1 = Math.atan2(geom.realOpenTip.y - geom.realHinge.y, geom.realOpenTip.x - geom.realHinge.x);
+    let diff = a1 - a0;
+
+    while(diff > Math.PI) diff -= 2*Math.PI;
+    while(diff < -Math.PI) diff += 2*Math.PI;
+
+    for(let i = 1; i <= 10; i++){
+        const frac = i / 10;
+        const a = a0 + diff * frac;
+        const samplePt = {
+            x: geom.realHinge.x + (d.sizeUnits * 0.85) * Math.cos(a),
+            y: geom.realHinge.y + (d.sizeUnits * 0.85) * Math.sin(a)
+        };
+        if(!isPointInPolygon(samplePt, vertices)) return false;
+    }
+
+    return true;
+}
+
+function resolveSmartSwingAngle(d){
+    if(checkDoorInsideWithAngle(d, 90)){
+        return 90;
+    }
+    const cornerAngle = getCornerAngleForWall(d.wallIdx, d.flip);
+    if(cornerAngle >= 30 && cornerAngle <= 170){
+        if(checkDoorInsideWithAngle(d, cornerAngle)){
+            return cornerAngle;
+        }
+    }
+    return 90;
+}
+
+function isDoorInsideRoom(d){
+    const angleToUse = resolveSmartSwingAngle(d);
+    return checkDoorInsideWithAngle(d, angleToUse);
+}
+
+function updatePendingDoorPreview(){
+    const select = document.getElementById('wallSelectDropdown');
+    const wallIdx = parseInt(select.value);
+    if(isNaN(wallIdx) || wallIdx < 0) { pendingDoor = null; renderDoorsLayer(); return; }
+
+    const wallInfo = getWallVectorInfo(wallIdx);
+
+    let sizeUnits = parseFloat(document.getElementById('doorSizeInput').value);
+    if(isNaN(sizeUnits) || sizeUnits <= 0) sizeUnits = 3;
+
+    document.getElementById('doorSizeVal').textContent = `${sizeUnits} ft`;
+
+    const sliderPct = parseFloat(document.getElementById('doorPosSlider').value) / 100;
+
+    const maxPos = Math.max(0, wallInfo.len - sizeUnits);
+    let posUnits = sliderPct * maxPos;
+
+    document.getElementById('doorPosVal').textContent = `${Math.round(sliderPct * 100)}%`;
+
+    pendingDoor = {
+        wallIdx,
+        posUnits,
+        sizeUnits,
+        flip: currentPendingFlip,
+        pending: true
+    };
+    
+    pendingDoor.swingAngle = resolveSmartSwingAngle(pendingDoor);
+    const geom = doorGeometry(pendingDoor);
+
+    document.getElementById('sidebarAngleVal').innerHTML = `${geom.effectiveSwingDeg}&deg;`;
+
+    isPendingDoorValid = checkDoorInsideWithAngle(pendingDoor, pendingDoor.swingAngle);
+
+    const hintEl = document.getElementById('doorInfoHint');
+    const addBtn = document.getElementById('addDoorBtn');
+
+    if(!isPendingDoorValid){
+        hintEl.textContent = `⚠️ Door extends outside room boundary!`;
+        hintEl.classList.add('hint-warning');
+        addBtn.disabled = true;
+    } else {
+        hintEl.textContent = `Wall ${wallIdx+1} Length: ${round2(wallInfo.len)} ft`;
+        hintEl.classList.remove('hint-warning');
+        addBtn.disabled = false;
+    }
+
+    renderDoorsLayer();
+}
+
+document.getElementById('addDoorBtn').addEventListener('click', function(){
+    if(!pendingDoor || !isPendingDoorValid) return;
+
+    doors.push({
+        id: uid(),
+        wallIdx: pendingDoor.wallIdx,
+        posUnits: pendingDoor.posUnits,
+        sizeUnits: pendingDoor.sizeUnits,
+        flip: pendingDoor.flip,
+        swingAngle: pendingDoor.swingAngle
+    });
+
+    pendingDoor = null;
+    closeAllPanels();
+    renderDoorsLayer();
+});
+
+function renderDoorsLayer(){
+    const box = getStageBox('finishedStage');
+    const svg = document.getElementById('doorLayer');
+    svg.setAttribute('width', box.w);
+    svg.setAttribute('height', box.h);
+    svg.setAttribute('viewBox', `0 0 ${box.w} ${box.h}`);
+
+    let content = '';
+
+    const renderDoorSvg = (geom, pending, isValid = true) => {
+        const { hinge, arcStart, openTip, sizePx, p1, p2 } = geom;
+        const a0 = Math.atan2(arcStart.y - hinge.y, arcStart.x - hinge.x);
+        let a1 = Math.atan2(openTip.y - hinge.y, openTip.x - hinge.x);
+        let diff = a1 - a0;
+
+        while(diff > Math.PI) diff -= 2*Math.PI;
+        while(diff < -Math.PI) diff += 2*Math.PI;
+
+        let arcPts = `${hinge.x},${hinge.y} `;
+        for(let i = 0; i <= 20; i++){
+            const a = a0 + diff * (i/20);
+            arcPts += `${(hinge.x + sizePx * Math.cos(a)).toFixed(1)},${(hinge.y + sizePx * Math.sin(a)).toFixed(1)} `;
+        }
+
+        let strokeCol = pending ? '#3b82f6' : '#2d2d2d';
+        let fillCol = pending ? 'rgba(59, 130, 246, 0.18)' : 'rgba(45, 45, 45, 0.12)';
+
+        if(pending && !isValid){
+            strokeCol = '#d32f2f';
+            fillCol = 'rgba(211, 47, 47, 0.25)';
+        }
+
+        return `
+            <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#FBFDFC" stroke-width="4.5"/>
+            <polygon points="${arcPts}" fill="${fillCol}" stroke="${strokeCol}" stroke-width="1.5" stroke-dasharray="${pending ? '3 3' : 'none'}"/>
+            <line x1="${hinge.x}" y1="${hinge.y}" x2="${openTip.x}" y2="${openTip.y}" stroke="${strokeCol}" stroke-width="2.5"/>
+            <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${strokeCol}" stroke-width="1.5" stroke-dasharray="2 2"/>
+        `;
+    };
+
+    doors.forEach(d => content += renderDoorSvg(doorGeometry(d), false, true));
+    if (pendingDoor) content += renderDoorSvg(doorGeometry(pendingDoor), true, isPendingDoorValid);
+    svg.innerHTML = content;
+
+    document.querySelectorAll('.door-control-badge').forEach(b => b.remove());
+    const stage = document.getElementById('finishedStage');
+
+    doors.forEach(d => {
+        const geom = doorGeometry(d);
+        const badge = document.createElement('div');
+        badge.className = 'door-control-badge';
+        badge.style.left = `${(geom.p1.x + geom.p2.x)/2}px`;
+        badge.style.top = `${(geom.p1.y + geom.p2.y)/2}px`;
+
+        const flipBtn = document.createElement('button');
+        flipBtn.className = 'door-flip-btn';
+        flipBtn.innerHTML = '&#8646;';
+        flipBtn.title = 'Flip Door Opening Swing';
+        flipBtn.onclick = (e) => {
+            e.stopPropagation();
+            const oldFlip = d.flip;
+            d.flip = !d.flip;
+            d.swingAngle = resolveSmartSwingAngle(d);
+            if(!checkDoorInsideWithAngle(d, d.swingAngle)){
+                d.flip = oldFlip;
+                d.swingAngle = resolveSmartSwingAngle(d);
+                alert("Flipping door swing would extend outside room polygon!");
+            } else {
+                renderDoorsLayer();
+            }
+        };
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'door-delete-btn';
+        delBtn.innerHTML = '&#10005;';
+        delBtn.title = 'Remove Door';
+        delBtn.onclick = (e) => { e.stopPropagation(); doors = doors.filter(x => x.id !== d.id); renderDoorsLayer(); };
+
+        badge.appendChild(flipBtn);
+        badge.appendChild(delBtn);
+        stage.appendChild(badge);
+    });
+}
+
+/* ============ Furniture Placement ============ */
+document.querySelectorAll('.furn-type-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('.furn-type-btn').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        pendingFurnType = this.dataset.type;
+
+        const bedPanel = document.getElementById('bedSizePanel');
+        const dimsPanel = document.getElementById('furnDimsPanel');
+
+        if(pendingFurnType === 'bed'){
+            bedPanel.classList.remove('hidden');
+            dimsPanel.classList.add('hidden');
+        } else {
+            bedPanel.classList.add('hidden');
+            dimsPanel.classList.remove('hidden');
+            const def = FURN_DEFAULTS_FT[pendingFurnType];
+            document.getElementById('furnWidthInput').value = def.w;
+            document.getElementById('furnDepthInput').value = def.d;
+        }
+    });
+});
+
+document.querySelectorAll('.bed-size-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('.bed-size-btn').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        const size = this.dataset.size;
+        if(size === 'custom'){
+            document.getElementById('furnDimsPanel').classList.remove('hidden');
+            document.getElementById('furnWidthInput').value = BED_SIZES_FT.queen.w;
+            document.getElementById('furnDepthInput').value = BED_SIZES_FT.queen.d;
+        } else {
+            document.getElementById('furnDimsPanel').classList.add('hidden');
+            const bed = BED_SIZES_FT[size];
+            addFurnitureItem('bed', bed.label, bed.w, bed.d);
+        }
+    });
+});
+
+document.getElementById('addFurnBtn').addEventListener('click', function(){
+    let w = parseFloat(document.getElementById('furnWidthInput').value);
+    let d = parseFloat(document.getElementById('furnDepthInput').value);
+
+    if(isNaN(w) || isNaN(d) || w <= 0 || d <= 0) return;
+
+    let label = (pendingFurnType === 'bed') ? 'Bed (Custom)' : (FURN_DEFAULTS_FT[pendingFurnType]?.label || 'Item');
+    addFurnitureItem(pendingFurnType, label, w, d);
+});
+
+function effectiveSize(f){
+    const swapped = (f.rotation % 180) !== 0;
+    return { wUnits: swapped ? f.dUnits : f.wUnits, dUnits: swapped ? f.wUnits : f.dUnits };
+}
+
+function findFreePlacement(wUnits, dUnits){
+    const bounds = getRoomBoundingBox();
+    for(let y = bounds.minY; y <= bounds.maxY - dUnits; y += 0.25){
+        for(let x = bounds.minX; x <= bounds.maxX - wUnits; x += 0.25){
+            if(isRectInsidePolygon({x, y, w: wUnits, h: dUnits}, vertices)){
+                return { x, y };
+            }
+        }
+    }
+    return null;
+}
+
+function addFurnitureItem(type, label, wUnits, dUnits){
+    const pos = findFreePlacement(wUnits, dUnits);
+    if(!pos){
+        alert("This item is too large to fit entirely inside your room geometry!");
+        return;
+    }
+
+    const item = { id: uid(), type, label, wUnits, dUnits, xUnits: pos.x, yUnits: pos.y, rotation: 0 };
+    furniture.push(item);
+    selectedFurnId = item.id;
+    renderFurnitureLayer();
+}
+
+function renderFurnitureLayer(){
+    document.querySelectorAll('.furn-item, .furn-toolbar').forEach(el => el.remove());
+    const stage = document.getElementById('finishedStage');
+    const overlay = document.getElementById('furnOverlay');
+
+    furniture.forEach(f => {
+        const div = document.createElement('div');
+        div.className = 'furn-item' + (f.id === selectedFurnId ? ' selected' : '');
+
+        const eff = effectiveSize(f);
+        const wPx = eff.wUnits * viewTransform.scale;
+        const hPx = eff.dUnits * viewTransform.scale;
+        const screenPos = realToScreen({x: f.xUnits, y: f.yUnits}, 'finishedStage');
+
+        div.style.left = screenPos.x + 'px';
+        div.style.top = screenPos.y + 'px';
+        div.style.width = wPx + 'px';
+        div.style.height = hPx + 'px';
+        div.style.background = FURN_COLORS[f.type] || '#eee';
+
+        div.innerHTML = `<span>${f.label}</span><span class="furn-sub">${round2(f.wUnits)}ft &times; ${round2(f.dUnits)}ft</span>`;
+
+        attachDragHandlers(div, f);
+        stage.appendChild(div);
+
+        if(f.id === selectedFurnId){
+            const toolbar = document.createElement('div');
+            toolbar.className = 'furn-toolbar';
+
+            const rotateBtn = document.createElement('button');
+            rotateBtn.innerHTML = '&#8635;';
+            rotateBtn.onclick = (e) => {
+                e.stopPropagation();
+                const oldRot = f.rotation;
+                f.rotation = (f.rotation + 90) % 360;
+                const effNew = effectiveSize(f);
+                if(!isRectInsidePolygon({x: f.xUnits, y: f.yUnits, w: effNew.wUnits, h: effNew.dUnits}, vertices)){
+                    f.rotation = oldRot;
+                    alert("Cannot rotate furniture here — it would cross outside room walls!");
+                } else {
+                    renderFurnitureLayer();
+                }
+            };
+
+            const delBtn = document.createElement('button');
+            delBtn.innerHTML = '&#10005;';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                furniture = furniture.filter(x => x.id !== f.id);
+                selectedFurnId = null;
+                renderFurnitureLayer();
+            };
+
+            toolbar.appendChild(rotateBtn);
+            toolbar.appendChild(delBtn);
+            overlay.appendChild(toolbar);
+
+            toolbar.style.top = Math.max(0, screenPos.y - 32) + 'px';
+            toolbar.style.left = Math.max(0, screenPos.x + wPx/2 - 28) + 'px';
+        }
+    });
+}
+
+function attachDragHandlers(div, f){
+    div.addEventListener('pointerdown', function(e){
+        e.preventDefault();
+        const startX = e.clientX, startY = e.clientY;
+        const startScreen = realToScreen({x: f.xUnits, y: f.yUnits}, 'finishedStage');
+        let moved = false;
+
+        function onMove(ev){
+            const dx = ev.clientX - startX, dy = ev.clientY - startY;
+            if(Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+
+            const candScreenX = startScreen.x + dx;
+            const candScreenY = startScreen.y + dy;
+            const candReal = screenToReal(candScreenX, candScreenY, 'finishedStage');
+            const eff = effectiveSize(f);
+
+            if(isRectInsidePolygon({x: candReal.x, y: candReal.y, w: eff.wUnits, h: eff.dUnits}, vertices)){
+                f.xUnits = candReal.x;
+                f.yUnits = candReal.y;
+                div.style.left = candScreenX + 'px';
+                div.style.top = candScreenY + 'px';
+
+                const toolbar = document.querySelector('.furn-toolbar');
+                if(toolbar){
+                    toolbar.style.top = Math.max(0, candScreenY - 32) + 'px';
+                    toolbar.style.left = Math.max(0, candScreenX + (eff.wUnits * viewTransform.scale)/2 - 28) + 'px';
+                }
+            }
+        }
+
+        function onUp(){
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+            if(!moved){
+                selectedFurnId = (selectedFurnId === f.id) ? null : f.id;
+                renderFurnitureLayer();
+            }
+        }
+
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+    });
+}
+
+/* ============ Navigation / Controls ============ */
+function updateStatus(){
+    const statusEl = document.getElementById('drawStatus');
+    document.getElementById('undoBtn').disabled = vertices.length === 0 && !pendingPoint;
+    document.getElementById('closePolyBtn').disabled = vertices.length < 3 || !!pendingPoint;
+
+    if(pendingPoint){
+        statusEl.textContent = 'Set length and direction for this wall, then confirm.';
+    } else if(vertices.length === 0){
+        statusEl.textContent = 'Tap anywhere on the grid to place your first corner.';
+    } else {
+        statusEl.textContent = 'Tap to add another corner, or "Close Polygon" to finish.';
+    }
+}
+
+function editShape(){
+    closed = false;
+    document.getElementById('finishedCard').classList.add('hidden');
+    document.getElementById('drawCard').classList.remove('hidden');
+    fitViewToVertices(vertices, 'drawStage');
+    renderDrawing();
+    updateStatus();
+}
+
+function startOver(){
+    vertices = [];
+    pendingPoint = null;
+    closed = false;
+    doors = [];
+    furniture = [];
+    selectedFurnId = null;
+
+    document.getElementById('finishedCard').classList.add('hidden');
+    document.getElementById('drawCard').classList.remove('hidden');
+    document.getElementById('segmentPanel').classList.add('hidden');
+
+    viewTransform = { scale: 25, centerX: 0, centerY: 0 };
+    renderDrawing();
+    updateStatus();
+}
+
+/* Initial Load */
+renderDrawing();
+updateStatus();
+
+</script>
+
+</body>
+</html>
