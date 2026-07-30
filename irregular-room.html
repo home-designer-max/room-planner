@@ -1069,28 +1069,130 @@ function doorGeometry(d, angleOverride){
     return { hinge, arcStart, openTip, sizePx, p1, p2, realP1, realP2, realHinge, realArcStart, realOpenTip, wallInfo, effectiveSwingDeg };
 }
 
-function checkDoorInsideWithAngle(d, swingDeg){
-    const geom = doorGeometry(d, swingDeg);
+function checkDoorInsideWithAngle(d, swingDeg) {
+  const geom = doorGeometry(d, swingDeg);
+  const steps = 20;
+  const hinge = geom.realHinge;
+  const radius = d.sizeUnits;
 
-    const a0 = Math.atan2(geom.realArcStart.y - geom.realHinge.y, geom.realArcStart.x - geom.realHinge.x);
-    const a1 = Math.atan2(geom.realOpenTip.y - geom.realHinge.y, geom.realOpenTip.x - geom.realHinge.x);
-    let diff = a1 - a0;
+  const a0 = Math.atan2(
+    geom.realArcStart.y - hinge.y,
+    geom.realArcStart.x - hinge.x
+  );
+  const a1 = Math.atan2(
+    geom.realOpenTip.y - hinge.y,
+    geom.realOpenTip.x - hinge.x
+  );
 
-    while(diff > Math.PI) diff -= 2*Math.PI;
-    while(diff < -Math.PI) diff += 2*Math.PI;
+  let diff = a1 - a0;
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
 
-    for(let i = 1; i <= 10; i++){
-        const frac = i / 10;
-        const a = a0 + diff * frac;
-        const samplePt = {
-            x: geom.realHinge.x + (d.sizeUnits * 0.85) * Math.cos(a),
-            y: geom.realHinge.y + (d.sizeUnits * 0.85) * Math.sin(a)
-        };
-        if(!isPointInPolygon(samplePt, vertices)) return false;
-    }
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const ang = a0 + diff * t;
+    const pt = {
+      x: hinge.x + radius * Math.cos(ang),
+      y: hinge.y + radius * Math.sin(ang),
+    };
+    if (!isPointInPolygon(pt, vertices)) return false;
+  }
 
-    return true;
+  return true;
 }
+
+function resolveSmartSwingAngle(d) {
+  if (checkDoorInsideWithAngle(d, 90)) return 90;
+
+  const cornerAngle = getCornerAngleForWall(d.wallIdx, d.flip);
+  if (cornerAngle > 30 && cornerAngle < 170) {
+    if (checkDoorInsideWithAngle(d, cornerAngle)) return cornerAngle;
+  }
+
+  return 90;
+}
+
+function isDoorInsideRoom(d) {
+  const angleToUse = resolveSmartSwingAngle(d);
+  return checkDoorInsideWithAngle(d, angleToUse);
+}
+
+function updatePendingDoorPreview() {
+  const select = document.getElementById("wallSelectDropdown");
+  const wallIdx = parseInt(select.value);
+
+  if (isNaN(wallIdx) || wallIdx < 0) {
+    pendingDoor = null;
+    renderDoorsLayer();
+    return;
+  }
+
+  const wallInfo = getWallVectorInfo(wallIdx);
+  let sizeUnits = parseFloat(document.getElementById("doorSizeInput").value);
+  if (isNaN(sizeUnits) || sizeUnits <= 0) sizeUnits = 3;
+
+  document.getElementById("doorSizeVal").textContent = `${sizeUnits.toFixed(1)} ft`;
+
+  const sliderPct = parseFloat(document.getElementById("doorPosSlider").value) / 100;
+  const maxPos = Math.max(0, wallInfo.len - sizeUnits);
+  const posUnits = sliderPct * maxPos;
+
+  document.getElementById("doorPosVal").textContent = `${Math.round(sliderPct * 100)}%`;
+
+  pendingDoor = {
+    wallIdx,
+    posUnits,
+    sizeUnits,
+    flip: currentPendingFlip,
+    pending: true,
+  };
+
+  pendingDoor.swingAngle = resolveSmartSwingAngle(pendingDoor);
+
+  const geom = doorGeometry(pendingDoor);
+  document.getElementById("sidebarAngleVal").innerHTML = `${geom.effectiveSwingDeg}°`;
+
+  isPendingDoorValid = checkDoorInsideWithAngle(pendingDoor, pendingDoor.swingAngle);
+
+  const hintEl = document.getElementById("doorInfoHint");
+  const addBtn = document.getElementById("addDoorBtn");
+
+  if (!isPendingDoorValid) {
+    hintEl.textContent = "Door extends outside room boundary!";
+    hintEl.classList.add("hint-warning");
+    addBtn.disabled = true;
+  } else {
+    hintEl.textContent = `Wall ${wallIdx + 1} Length: ${round2(wallInfo.len)} ft`;
+    hintEl.classList.remove("hint-warning");
+    addBtn.disabled = false;
+  }
+
+  renderDoorsLayer();
+}
+
+document.getElementById("addDoorBtn").addEventListener("click", function () {
+  if (!pendingDoor) return;
+
+  pendingDoor.swingAngle = resolveSmartSwingAngle(pendingDoor);
+
+  if (!checkDoorInsideWithAngle(pendingDoor, pendingDoor.swingAngle)) {
+    alert("Door extends outside room boundary!");
+    return;
+  }
+
+  doors.push({
+    id: uid(),
+    wallIdx: pendingDoor.wallIdx,
+    posUnits: pendingDoor.posUnits,
+    sizeUnits: pendingDoor.sizeUnits,
+    flip: pendingDoor.flip,
+    swingAngle: pendingDoor.swingAngle,
+  });
+
+  pendingDoor = null;
+  closeAllPanels();
+  renderDoorsLayer();
+});
 
 function resolveSmartSwingAngle(d){
     if(checkDoorInsideWithAngle(d, 90)){
@@ -1105,9 +1207,53 @@ function resolveSmartSwingAngle(d){
     return 90;
 }
 
-function isDoorInsideRoom(d){
-    const angleToUse = resolveSmartSwingAngle(d);
-    return checkDoorInsideWithAngle(d, angleToUse);
+function pointInsideOrOnEdge(pt, poly) {
+  const eps = 1e-6;
+
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[j];
+    const b = poly[i];
+
+    const cross = (b.x - a.x) * (pt.y - a.y) - (b.y - a.y) * (pt.x - a.x);
+    const dot = (pt.x - a.x) * (pt.x - b.x) + (pt.y - a.y) * (pt.y - b.y);
+
+    if (Math.abs(cross) < eps && dot <= eps) return true;
+  }
+
+  return isPointInPolygon(pt, poly);
+}
+
+function checkDoorInsideWithAngle(d, swingDeg) {
+  const geom = doorGeometry(d, swingDeg);
+  const hinge = geom.realHinge;
+  const radius = d.sizeUnits;
+  const steps = 20;
+
+  const a0 = Math.atan2(
+    geom.realArcStart.y - hinge.y,
+    geom.realArcStart.x - hinge.x
+  );
+  const a1 = Math.atan2(
+    geom.realOpenTip.y - hinge.y,
+    geom.realOpenTip.x - hinge.x
+  );
+
+  let diff = a1 - a0;
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const ang = a0 + diff * t;
+    const pt = {
+      x: hinge.x + radius * Math.cos(ang),
+      y: hinge.y + radius * Math.sin(ang),
+    };
+
+    if (!pointInsideOrOnEdge(pt, vertices)) return false;
+  }
+
+  return true;
 }
 
 function updatePendingDoorPreview(){
