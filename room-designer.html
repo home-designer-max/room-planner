@@ -102,7 +102,7 @@ button:active{
     letter-spacing:0.4px;
 }
 
-.field-group input[type="number"]{
+.field-group input[type="text"], .field-group input[type="number"]{
     width:100%;
     height:50px;
     border:1.5px solid #e4e2dc;
@@ -116,7 +116,7 @@ button:active{
     background:#FBFAF7;
 }
 
-.field-group input[type="number"]:focus{
+.field-group input[type="text"], .field-group input[type="number"]:focus{
     border-color:#333;
     background:white;
 }
@@ -188,12 +188,13 @@ button:active{
     display:flex;
     gap:12px;
     margin-top:4px;
+    flex-wrap: wrap;
 }
 
 .form-buttons button{
     height:52px;
-    font-size:16px;
-    flex:1;
+    font-size:15px;
+    flex:1 1 120px;
     border-radius:12px;
 }
 
@@ -213,6 +214,15 @@ button:active{
 
 .btn-primary:hover{
     background:#1a1a1a;
+}
+
+.btn-success{
+    background:#27ae60;
+    color:white;
+}
+
+.btn-success:hover{
+    background:#219150;
 }
 
 .result{
@@ -597,8 +607,7 @@ button:active{
     border:none;              /* remove normal border */
 }
 
-/* Sits on top of room-stage, but is NOT clipped, so the rotate/delete
-   toolbar can render above the room border without disappearing */
+/* Sits on top of room-stage, but is NOT clipped */
 .furn-overlay{
     position:absolute;
     top:0;
@@ -617,7 +626,7 @@ button:active{
 }
 
 .window-layer{
-    z-index:1001; /* Layer over room boundary line */
+    z-index:1001;
 }
 
 /* Room border always stays above furniture */
@@ -682,10 +691,7 @@ button:active{
     line-height:1.15;
     z-index:2;
 
-    /* Remove the normal border */
     border:none;
-
-    /* Draw border INSIDE the furniture */
     box-shadow: inset 0 0 0 1.5px rgba(0,0,0,0.22);
 }
 
@@ -694,8 +700,6 @@ button:active{
 }
 
 .furn-item.selected{
-    /* Drawn INSET (like the base border) so it never extends past the
-       furniture's own box and can't get clipped near the room walls */
     box-shadow: inset 0 0 0 1.5px rgba(0,0,0,0.22), inset 0 0 0 3px #2d2d2d;
     z-index:10;
 }
@@ -710,7 +714,7 @@ button:active{
     position:absolute;
     display:flex;
     gap:4px;
-    pointer-events:auto; /* overlay parent has pointer-events:none */
+    pointer-events:auto;
 }
 
 .furn-toolbar button{
@@ -755,7 +759,7 @@ button:active{
 
     <!-- Initial choice buttons -->
     <div id="choiceButtons">
-        <div class="container" style="gap:24px;">
+        <div class="container" style="gap:16px;">
             <button onclick="showRoomForm()">
                 Rectangular shape room
             </button>
@@ -763,12 +767,31 @@ button:active{
             <button onclick="location.href='irregular-room.html'">
                 Irregular shape Room
             </button>
+
+<button onclick="showSavedRoomsPanel()" style="background:#e8e5dd; font-size:18px; height:56px;">
+                    📂 Load Saved Room
+                </button>
+            </div>
+            <div id="savedRoomsPanel" class="side-panel hidden" style="margin-top:18px;">
+                <div class="panel-heading">Saved Rooms</div>
+                <select id="savedRoomsSelect" size="4" style="width:100%; min-height:160px; border:1.5px solid #e4e2dc; border-radius:12px; padding:8px; background:white; font-size:14px; color:#333;"></select>
+                <div class="form-buttons" style="margin-top:10px; gap:8px;">
+                    <button class="btn-secondary" type="button" onclick="closeSavedRoomsPanel()">Close</button>
+                    <button class="btn-primary" type="button" onclick="loadSelectedSavedRoom()">Load</button>
+                    <button class="btn-secondary" type="button" onclick="deleteSelectedSavedRoom()">Delete</button>
+                </div>
+                <div class="result" id="savedRoomsMessage">No rooms saved yet.</div>
         </div>
     </div>
 
     <!-- Width / Length form (hidden by default) -->
     <div id="roomForm" class="form-card hidden">
         <div class="form-title">Enter Room Dimensions</div>
+
+        <div class="field-group">
+            <label for="roomNameInput">Room name</label>
+            <input type="text" id="roomNameInput" placeholder="My Room">
+        </div>
 
         <div class="dimensions-row">
             <div class="field-group">
@@ -943,6 +966,7 @@ button:active{
         </div>
 
         <div class="form-buttons visual-buttons">
+            <button class="btn-success" onclick="saveRoomBlock()">💾 Save Room</button>
             <button class="btn-secondary" onclick="editDimensions()">Edit</button>
             <button class="btn-primary" onclick="goToStart()">Start Over</button>
         </div>
@@ -974,6 +998,7 @@ function goToStart(){
     document.getElementById('mainContainer').classList.remove('wide-mode');
     document.getElementById('choiceButtons').classList.remove('hidden');
     document.getElementById('resultText').textContent = '';
+    document.getElementById('roomNameInput').value = '';
     document.getElementById('widthInput').value = '';
     document.getElementById('lengthInput').value = '';
 }
@@ -987,7 +1012,7 @@ function fromInches(v, unit){ return v * INCH_TO[unit]; }
 function round2(n){ return Math.round(n * 100) / 100; }
 
 /* ============ Room state ============ */
-let currentRoom = { width:0, length:0, unit:'ft', step:1, cellPx:30, boxW:0, boxH:0, pxPerUnit:30 };
+let currentRoom = { width:0, length:0, unit:'ft', step:1, cellPx:30, boxW:0, boxH:0, pxPerUnit:30, name:'Untitled Room' };
 let doors = [];
 let windows = [];
 let furniture = [];
@@ -1000,8 +1025,141 @@ let pendingFurnType = null;
 
 function uid(){ return 'id' + Math.random().toString(36).slice(2, 9); }
 
+/* ============ Save & Load Logic ============ */
+function saveRoomBlock(){
+    const roomData = {
+        id: currentRoom.id || uid(),
+        type: 'rectangular',
+        timestamp: new Date().toISOString(),
+        name: currentRoom.name || 'Untitled Room',
+        room: currentRoom,
+        doors: doors,
+        windows: windows,
+        furniture: furniture
+    };
+
+    const savedRooms = getSavedRooms();
+    savedRooms[roomData.id] = roomData;
+    localStorage.setItem('savedRooms', JSON.stringify(savedRooms));
+
+    currentRoom.id = roomData.id;
+    currentRoom.name = roomData.name;
+
+    alert(`Room "${roomData.name}" saved locally. Open "Load Saved Room" to reload it anytime.`);
+}
+
+function getSavedRooms(){
+    try {
+        const raw = localStorage.getItem('savedRooms');
+        return raw ? JSON.parse(raw) : {};
+    } catch(err){
+        return {};
+    }
+}
+
+function showSavedRoomsPanel(){
+    refreshSavedRoomsPanel();
+    document.getElementById('savedRoomsPanel').classList.remove('hidden');
+}
+
+function closeSavedRoomsPanel(){
+    document.getElementById('savedRoomsPanel').classList.add('hidden');
+}
+
+function refreshSavedRoomsPanel(){
+    const savedRooms = getSavedRooms();
+    const select = document.getElementById('savedRoomsSelect');
+    const message = document.getElementById('savedRoomsMessage');
+    select.innerHTML = '';
+
+    const entries = Object.values(savedRooms)
+        .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    if(entries.length === 0){
+        message.textContent = 'No saved rooms yet.';
+        return;
+    }
+
+    entries.forEach(room => {
+        const option = document.createElement('option');
+        option.value = room.id;
+        const typeLabel = room.type === 'irregular' ? 'Irregular' : 'Rectangular';
+        let subtitle = typeLabel;
+        if(room.type === 'rectangular' && room.room){
+            subtitle = `${typeLabel}: ${room.room.width}${room.room.unit}×${room.room.length}${room.room.unit}`;
+        }
+        option.textContent = `${room.name} — ${subtitle}`;
+        select.appendChild(option);
+    });
+
+    message.textContent = `Saved rooms: ${entries.length}`;
+}
+
+function loadSelectedSavedRoom(){
+    const select = document.getElementById('savedRoomsSelect');
+    if(!select.value){
+        alert('Please select a saved room first.');
+        return;
+    }
+    const savedRooms = getSavedRooms();
+    const roomData = savedRooms[select.value];
+    if(!roomData){
+        alert('Saved room not found.');
+        refreshSavedRoomsPanel();
+        return;
+    }
+    if(roomData.type === 'rectangular'){
+        loadRoomData(roomData);
+        closeSavedRoomsPanel();
+        return;
+    }
+    if(roomData.type === 'irregular'){
+        localStorage.setItem('loadRoomId', roomData.id);
+        location.href = 'irregular-room.html';
+        return;
+    }
+    alert('Unknown saved room type.');
+}
+
+function deleteSelectedSavedRoom(){
+    const select = document.getElementById('savedRoomsSelect');
+    if(!select.value){
+        alert('Please select a saved room to delete.');
+        return;
+    }
+    const savedRooms = getSavedRooms();
+    delete savedRooms[select.value];
+    localStorage.setItem('savedRooms', JSON.stringify(savedRooms));
+    refreshSavedRoomsPanel();
+}
+
+function loadRoomData(data){
+    doors = data.doors || [];
+    windows = data.windows || [];
+    furniture = data.furniture || [];
+    currentRoom = Object.assign({}, data.room, { name: data.name || data.room.name || 'Untitled Room', id: data.id || data.room.id });
+
+    document.getElementById('roomNameInput').value = currentRoom.name;
+    document.getElementById('widthInput').value = currentRoom.width;
+    document.getElementById('lengthInput').value = currentRoom.length;
+    const unitRadio = document.querySelector(`input[name="unit"][value="${currentRoom.unit}"]`);
+    if(unitRadio) unitRadio.checked = true;
+
+    const gridInput = document.getElementById('gridSpacingInput');
+    gridInput.value = currentRoom.step;
+    document.getElementById('gridUnitLabel').textContent = currentRoom.unit;
+
+    renderRoomBox(currentRoom.width, currentRoom.length, currentRoom.unit, currentRoom.step);
+
+    document.getElementById('choiceButtons').classList.add('hidden');
+    document.getElementById('roomForm').classList.add('hidden');
+    document.getElementById('roomVisual').classList.remove('hidden');
+    document.getElementById('mainContainer').classList.add('wide-mode');
+}
+
 /* ============ Dimension form submit ============ */
 function submitRoomForm(){
+    const nameValue = document.getElementById('roomNameInput').value.trim() || 'Untitled Room';
     const width = parseFloat(document.getElementById('widthInput').value);
     const length = parseFloat(document.getElementById('lengthInput').value);
     const unit = document.querySelector('input[name="unit"]:checked').value;
@@ -1015,7 +1173,6 @@ function submitRoomForm(){
     document.getElementById('resultText').style.color = '#333';
     document.getElementById('resultText').textContent = '';
 
-    // reset room state for a fresh room
     doors = [];
     windows = [];
     furniture = [];
@@ -1027,6 +1184,7 @@ function submitRoomForm(){
     pendingFurnType = null;
     closeAllPanels();
 
+    currentRoom.name = nameValue;
     currentRoom.width = width;
     currentRoom.length = length;
     currentRoom.unit = unit;
@@ -1083,7 +1241,6 @@ document.getElementById('gridAutoBtn').addEventListener('click', function(){
     renderRoomBox(currentRoom.width, currentRoom.length, currentRoom.unit, autoStep);
 });
 
-/* Pick a "nice" grid step (1, 2, 5, 10, 20, 50...) */
 function niceStep(range){
     const roughStep = range / 8;
     const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
@@ -1116,7 +1273,6 @@ function renderRoomBox(width, length, unit, spacing){
     currentRoom.boxH = boxH;
     currentRoom.pxPerUnit = cellPx / step;
 
-    // clamp existing furniture, doors & windows to stay within new room size
     furniture.forEach(f => {
         f.xUnits = Math.max(0, Math.min(f.xUnits, Math.max(0, width - f.wUnits)));
         f.yUnits = Math.max(0, Math.min(f.yUnits, Math.max(0, length - f.dUnits)));
@@ -1142,7 +1298,8 @@ function renderRoomBox(width, length, unit, spacing){
 
     const area = round2(width * length);
     document.getElementById('areaNote').textContent = `Area: ${area} sq ${unit}`;
-    document.getElementById('visualTitle').textContent = `${width} ${unit} \u00d7 ${length} ${unit} Room`;
+    const titleText = currentRoom.name ? `${currentRoom.name} — ${width} ${unit} × ${length} ${unit}` : `${width} ${unit} × ${length} ${unit} Room`;
+    document.getElementById('visualTitle').textContent = titleText;
 
     renderDoorsLayer();
     renderWindowsLayer();

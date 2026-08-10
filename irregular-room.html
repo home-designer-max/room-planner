@@ -135,6 +135,13 @@ button:active{ transform:scale(0.98); }
 .btn-secondary:hover{ background:#e8e5dd; }
 .btn-primary{ background:#2d2d2d; color:white; }
 .btn-primary:hover{ background:#1a1a1a; }
+.btn-success{ background:#27ae60; color:white; }
+.btn-success:hover{ background:#219150; }
+.toolbar-row{ display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; }
+.toolbar-row .field-group{ min-width:260px; }
+.room-block-panel{ background:#FBFDFC; border:1.5px solid #e4e2dc; border-radius:14px; padding:16px; margin-bottom:18px; }
+.room-block-preview{ position:absolute; pointer-events:auto; border:2px dashed #2d2d2d; background:rgba(45,45,45,0.08); color:#2d2d2d; display:flex; align-items:center; justify-content:center; text-align:center; font-size:12px; font-weight:700; border-radius:10px; z-index:2500; cursor:grab; user-select:none; }
+.room-block-preview.invalid-block{ border-color:#d32f2f; background:rgba(211,47,47,0.15); }
 
 /* ---- Grid spacing stepper ---- */
 .grid-control{ width:100%; display:flex; flex-direction:column; gap:7px; }
@@ -401,6 +408,21 @@ button:active{ transform:scale(0.98); }
 
 <div class="container">
 
+    <div class="toolbar-row">
+        <button class="btn-secondary" type="button" onclick="showSavedRoomsPanel()">📂 Load Saved Room</button>
+    </div>
+
+    <div id="savedRoomsPanel" class="side-panel hidden" style="margin-bottom:0;">
+        <div class="panel-heading">Saved Rooms</div>
+        <select id="savedRoomsSelect" size="4" style="width:100%; min-height:160px; border:1.5px solid #e4e2dc; border-radius:12px; padding:8px; background:white; font-size:14px; color:#333;"></select>
+        <div class="form-buttons" style="margin-top:10px; gap:8px;">
+            <button class="btn-secondary" type="button" onclick="closeSavedRoomsPanel()">Close</button>
+            <button id="savedRoomsConfirmBtn" class="btn-primary" type="button" onclick="loadSelectedSavedRoom()">Load</button>
+            <button class="btn-secondary" type="button" onclick="deleteSelectedSavedRoom()">Delete</button>
+        </div>
+        <div class="result" id="savedRoomsMessage">No rooms saved yet.</div>
+    </div>
+
     <!-- Drawing Step -->
     <div class="form-card" id="drawCard">
         <div class="form-title">Sketch Your Room</div>
@@ -451,6 +473,25 @@ button:active{ transform:scale(0.98); }
     <!-- Finished Stage + Furniture Designer -->
     <div class="form-card hidden" id="finishedCard">
         <div class="form-title">Your Room Design</div>
+
+        <div class="toolbar-row">
+            <div class="field-group">
+                <label for="roomNameInput">Room name</label>
+                <input type="text" id="roomNameInput" placeholder="My Room">
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn-success" onclick="saveCurrentRoom()">💾 Save Room</button>
+                <button type="button" class="btn-secondary" onclick="showSavedRoomsPanel('load')">📂 Load Saved Room</button>
+            </div>
+        </div>
+
+        <div class="room-block-panel hidden" id="roomBlockPanel">
+            <div class="hint-text">Drag the pending room block into place, then confirm to convert it into furniture pieces.</div>
+            <div class="form-buttons">
+                <button class="btn-secondary" type="button" onclick="cancelPendingRoomBlock()">Cancel</button>
+                <button class="btn-primary" type="button" onclick="confirmRoomBlockPlacement()">Confirm Room Block</button>
+            </div>
+        </div>
 
         <div class="designer-layout">
             <!-- Sidebar for Doors, Windows & Furniture -->
@@ -517,6 +558,7 @@ button:active{ transform:scale(0.98); }
                 </div>
 
                 <button class="sidebar-btn" id="btnFurniture" type="button">&#128715; Add Furniture</button>
+                <button class="sidebar-btn" id="btnSavedRoomBlock" type="button">📦 Add Saved Room</button>
 
                 <div class="side-panel hidden" id="furniturePanel">
                     <div class="panel-heading">Choose Item</div>
@@ -616,6 +658,10 @@ let isPendingWindowValid = true;
 
 let pendingFurnType = null;
 let currentPendingFlip = false;
+
+let currentRoom = { id:null, name:'Untitled Room', importedRoomIds: [] };
+let savedRoomsPanelMode = 'load';
+let pendingRoomBlock = null;
 
 let viewTransform = {
     scale: 25,       
@@ -1033,6 +1079,7 @@ function renderFinishedRoom(){
     renderWindowsLayer();
     renderDoorsLayer();
     renderFurnitureLayer();
+    renderRoomBlockPreview();
 }
 
 window.addEventListener('resize', () => {
@@ -1092,6 +1139,14 @@ document.getElementById('btnFurniture').addEventListener('click', function(){
         panel.classList.remove('hidden');
         this.classList.add('active');
     }
+});
+
+document.getElementById('btnSavedRoomBlock').addEventListener('click', function(){
+    if(!closed){
+        alert('Finish drawing the room before adding a saved room block.');
+        return;
+    }
+    showSavedRoomsPanel('block');
 });
 
 /* ============ Vector Geometry Helper ============ */
@@ -1734,7 +1789,9 @@ function startOver(){
     windows = [];
     furniture = [];
     selectedFurnId = null;
+    currentRoom = { id:null, name:'Untitled Room', importedRoomIds: [] };
 
+    document.getElementById('roomNameInput').value = '';
     document.getElementById('finishedCard').classList.add('hidden');
     document.getElementById('drawCard').classList.remove('hidden');
     document.getElementById('segmentPanel').classList.add('hidden');
@@ -1744,9 +1801,305 @@ function startOver(){
     updateStatus();
 }
 
+function getSavedRooms(){
+    try { return JSON.parse(localStorage.getItem('savedRooms') || '{}'); } catch(err){ return {}; }
+}
+
+function showSavedRoomsPanel(mode = 'load'){
+    savedRoomsPanelMode = mode;
+    refreshSavedRoomsPanel();
+    document.getElementById('savedRoomsConfirmBtn').textContent = mode === 'block' ? 'Add as Block' : 'Load';
+    document.getElementById('savedRoomsPanel').classList.remove('hidden');
+}
+
+function closeSavedRoomsPanel(){
+    document.getElementById('savedRoomsPanel').classList.add('hidden');
+}
+
+function refreshSavedRoomsPanel(){
+    const savedRooms = getSavedRooms();
+    const select = document.getElementById('savedRoomsSelect');
+    const message = document.getElementById('savedRoomsMessage');
+    select.innerHTML = '';
+
+    const entries = Object.values(savedRooms)
+        .filter(room => room.type === 'irregular')
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    if(entries.length === 0){
+        message.textContent = 'No irregular rooms saved yet.';
+        return;
+    }
+
+    entries.forEach(room => {
+        const option = document.createElement('option');
+        option.value = room.id;
+        option.textContent = `${room.name} — Irregular room`;
+        select.appendChild(option);
+    });
+
+    message.textContent = `Saved rooms: ${entries.length}`;
+}
+
+function saveCurrentRoom(){
+    if(!closed){
+        alert('Finish drawing and closing the room before saving.');
+        return;
+    }
+
+    const name = document.getElementById('roomNameInput').value.trim() || 'Untitled Room';
+    currentRoom.name = name;
+
+    const includeImported = currentRoom.importedRoomIds && currentRoom.importedRoomIds.length > 0;
+    let furnitureToSave = furniture;
+    if(includeImported){
+        const combined = confirm(
+            `Your room currently includes furniture from ${currentRoom.importedRoomIds.length} saved room(s).\n` +
+            `Press OK to save the full combined room, or Cancel to save only the base room without imported furniture.`
+        );
+        if(!combined){
+            furnitureToSave = furniture.filter(f => !f.sourceRoomId);
+        }
+    }
+
+    const roomData = {
+        id: currentRoom.id || uid(),
+        type: 'irregular',
+        timestamp: new Date().toISOString(),
+        name,
+        vertices: vertices,
+        doors: doors,
+        windows: windows,
+        furniture: furnitureToSave,
+        gridSpacing: gridSpacing
+    };
+
+    const savedRooms = getSavedRooms();
+    savedRooms[roomData.id] = roomData;
+    localStorage.setItem('savedRooms', JSON.stringify(savedRooms));
+
+    currentRoom.id = roomData.id;
+    alert(`Room "${name}" saved locally. Use Load Saved Room to reopen it.`);
+    refreshSavedRoomsPanel();
+}
+
+function loadSelectedSavedRoom(){
+    const select = document.getElementById('savedRoomsSelect');
+    if(!select.value){ alert('Choose a saved room first.'); return; }
+    const savedRooms = getSavedRooms();
+    const roomData = savedRooms[select.value];
+
+    if(!roomData){ alert('Saved room not found.'); refreshSavedRoomsPanel(); return; }
+    if(roomData.type !== 'irregular'){ alert('This saved room is not an irregular room.'); return; }
+
+    if(savedRoomsPanelMode === 'block'){
+        prepareSavedRoomBlock(roomData);
+    } else {
+        loadRoomData(roomData);
+    }
+
+    closeSavedRoomsPanel();
+}
+
+function getRoomDataBounds(roomData){
+    if(!roomData.vertices || !roomData.vertices.length){ return { minX:0, maxX:0, minY:0, maxY:0, width:0, height:0 }; }
+    let minX = roomData.vertices[0].x;
+    let maxX = roomData.vertices[0].x;
+    let minY = roomData.vertices[0].y;
+    let maxY = roomData.vertices[0].y;
+    roomData.vertices.forEach(v => {
+        minX = Math.min(minX, v.x);
+        maxX = Math.max(maxX, v.x);
+        minY = Math.min(minY, v.y);
+        maxY = Math.max(maxY, v.y);
+    });
+    return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
+}
+
+function prepareSavedRoomBlock(roomData){
+    const bbox = getRoomDataBounds(roomData);
+    if(bbox.width === 0 || bbox.height === 0){
+        alert('Cannot add this room as a draggable block.');
+        return;
+    }
+
+    pendingRoomBlock = {
+        sourceRoom: roomData,
+        xUnits: viewTransform.centerX - bbox.width / 2,
+        yUnits: viewTransform.centerY - bbox.height / 2,
+        width: bbox.width,
+        height: bbox.height,
+        bbox
+    };
+
+    document.getElementById('roomBlockPanel').classList.remove('hidden');
+    renderRoomBlockPreview();
+}
+
+function cancelPendingRoomBlock(){
+    pendingRoomBlock = null;
+    document.getElementById('roomBlockPanel').classList.add('hidden');
+    renderRoomBlockPreview();
+}
+
+function confirmRoomBlockPlacement(){
+    if(!pendingRoomBlock){
+        alert('There is no room block to confirm.');
+        return;
+    }
+
+    const source = pendingRoomBlock.sourceRoom;
+    const offsetX = pendingRoomBlock.xUnits - pendingRoomBlock.bbox.minX;
+    const offsetY = pendingRoomBlock.yUnits - pendingRoomBlock.bbox.minY;
+
+    const importedFurniture = (source.furniture || []).map(item => ({
+        ...item,
+        id: uid(),
+        xUnits: item.xUnits + offsetX,
+        yUnits: item.yUnits + offsetY,
+        sourceRoomId: source.id
+    }));
+
+    if(importedFurniture.length > 0){
+        furniture = furniture.concat(importedFurniture);
+    } else {
+        furniture.push({
+            id: uid(),
+            type: 'room-block',
+            label: `Room: ${source.name}`,
+            wUnits: pendingRoomBlock.width,
+            dUnits: pendingRoomBlock.height,
+            xUnits: pendingRoomBlock.xUnits,
+            yUnits: pendingRoomBlock.yUnits,
+            rotation: 0,
+            sourceRoomId: source.id
+        });
+    }
+
+    currentRoom.importedRoomIds = Array.from(new Set([...(currentRoom.importedRoomIds || []), source.id]));
+    pendingRoomBlock = null;
+    document.getElementById('roomBlockPanel').classList.add('hidden');
+    renderFinishedRoom();
+}
+
+function renderRoomBlockPreview(){
+    const previewId = 'roomBlockPreview';
+    let preview = document.getElementById(previewId);
+    if(!pendingRoomBlock){
+        if(preview) preview.remove();
+        return;
+    }
+
+    const stage = document.getElementById('finishedStage');
+    if(!preview){
+        preview = document.createElement('div');
+        preview.id = previewId;
+        preview.className = 'room-block-preview';
+        preview.addEventListener('pointerdown', beginRoomBlockDrag);
+        stage.appendChild(preview);
+    }
+
+    const screenPos = realToScreen({ x: pendingRoomBlock.xUnits, y: pendingRoomBlock.yUnits }, 'finishedStage');
+    preview.style.left = `${screenPos.x}px`;
+    preview.style.top = `${screenPos.y}px`;
+    preview.style.width = `${pendingRoomBlock.width * viewTransform.scale}px`;
+    preview.style.height = `${pendingRoomBlock.height * viewTransform.scale}px`;
+    preview.textContent = pendingRoomBlock.sourceRoom.name;
+
+    const inside = isRectInsidePolygon({
+        x: pendingRoomBlock.xUnits,
+        y: pendingRoomBlock.yUnits,
+        w: pendingRoomBlock.width,
+        h: pendingRoomBlock.height
+    }, vertices);
+    preview.classList.toggle('invalid-block', !inside);
+    preview.style.display = 'flex';
+}
+
+function beginRoomBlockDrag(e){
+    e.preventDefault();
+    if(!pendingRoomBlock) return;
+    const preview = e.currentTarget;
+    const startScreen = realToScreen({ x: pendingRoomBlock.xUnits, y: pendingRoomBlock.yUnits }, 'finishedStage');
+    const originPointer = { x: e.clientX, y: e.clientY };
+
+    function moveHandler(ev){
+        const dx = ev.clientX - originPointer.x;
+        const dy = ev.clientY - originPointer.y;
+        const newScreenX = startScreen.x + dx;
+        const newScreenY = startScreen.y + dy;
+        const realPos = screenToReal(newScreenX, newScreenY, 'finishedStage');
+        const candidate = {
+            x: realPos.x,
+            y: realPos.y,
+            w: pendingRoomBlock.width,
+            h: pendingRoomBlock.height
+        };
+
+        if(isRectInsidePolygon(candidate, vertices)){
+            pendingRoomBlock.xUnits = realPos.x;
+            pendingRoomBlock.yUnits = realPos.y;
+            preview.style.left = `${newScreenX}px`;
+            preview.style.top = `${newScreenY}px`;
+            preview.classList.remove('invalid-block');
+        } else {
+            preview.classList.add('invalid-block');
+        }
+    }
+
+    function upHandler(){
+        window.removeEventListener('pointermove', moveHandler);
+        window.removeEventListener('pointerup', upHandler);
+    }
+
+    window.addEventListener('pointermove', moveHandler);
+    window.addEventListener('pointerup', upHandler);
+}
+
+function deleteSelectedSavedRoom(){
+    const select = document.getElementById('savedRoomsSelect');
+    if(!select.value){ alert('Choose a saved room to delete.'); return; }
+    const savedRooms = getSavedRooms();
+    delete savedRooms[select.value];
+    localStorage.setItem('savedRooms', JSON.stringify(savedRooms));
+    refreshSavedRoomsPanel();
+}
+
+function loadRoomData(data){
+    vertices = data.vertices || [];
+    doors = data.doors || [];
+    windows = data.windows || [];
+    furniture = data.furniture || [];
+    gridSpacing = data.gridSpacing || 1;
+    currentRoom = { id: data.id || null, name: data.name || 'Untitled Room', importedRoomIds: [] };
+
+    document.getElementById('roomNameInput').value = currentRoom.name;
+    document.getElementById('gridSpacingInput').value = gridSpacing;
+
+    closed = true;
+    document.getElementById('drawCard').classList.add('hidden');
+    document.getElementById('finishedCard').classList.remove('hidden');
+    document.getElementById('segmentPanel').classList.add('hidden');
+
+    fitViewToVertices(vertices, 'finishedStage');
+    renderFinishedRoom();
+    closeSavedRoomsPanel();
+}
+
+function loadSavedRoomOnStartup(){
+    const loadId = localStorage.getItem('loadRoomId');
+    if(!loadId) return;
+    const savedRooms = getSavedRooms();
+    const roomData = savedRooms[loadId];
+    localStorage.removeItem('loadRoomId');
+    if(roomData && roomData.type === 'irregular'){
+        loadRoomData(roomData);
+    }
+}
+
 /* Initial Load */
 renderDrawing();
 updateStatus();
+loadSavedRoomOnStartup();
 
 </script>
 
