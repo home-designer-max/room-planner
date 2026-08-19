@@ -1,0 +1,2127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Room Designer</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+body{
+    background:#F8F5EE; /* Plain Ivory */
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:20px 0;
+}
+
+.container{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+    width:90%;
+    max-width:340px;
+    transition:max-width 0.2s;
+}
+
+.container.wide-mode{
+    max-width:760px;
+}
+
+button{
+    height:70px;
+    border:none;
+    border-radius:18px;
+    background:white;
+    color:#444;
+    font-size:22px;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(0,0,0,0.08);
+    transition:0.2s;
+}
+
+button:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 22px rgba(0,0,0,0.12);
+}
+
+button:active{
+    transform:scale(0.98);
+}
+
+/* ---- Form styles ---- */
+.hidden{
+    display:none !important;
+}
+
+.form-card{
+    background:white;
+    border-radius:20px;
+    padding:30px 26px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.08);
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+}
+
+.form-title{
+    font-size:19px;
+    font-weight:700;
+    color:#2d2d2d;
+    text-align:center;
+    letter-spacing:0.2px;
+}
+
+.dimensions-row{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+}
+
+.field-group{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    min-width:0;
+}
+
+.field-group label{
+    font-size:12.5px;
+    font-weight:700;
+    color:#8a8a8a;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+}
+
+.field-group input[type="text"], .field-group input[type="number"]{
+    width:100%;
+    height:50px;
+    border:1.5px solid #e4e2dc;
+    border-radius:12px;
+    padding:0 14px;
+    font-size:17px;
+    font-weight:600;
+    color:#333;
+    outline:none;
+    transition:0.2s;
+    background:#FBFAF7;
+}
+
+.field-group input[type="text"], .field-group input[type="number"]:focus{
+    border-color:#333;
+    background:white;
+}
+
+.dimensions-row input[type="number"]::-webkit-outer-spin-button,
+.dimensions-row input[type="number"]::-webkit-inner-spin-button{
+    -webkit-appearance:none;
+    margin:0;
+}
+
+.times-symbol{
+    height:50px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:16px;
+    font-weight:600;
+    color:#bbb;
+    padding-bottom:0;
+}
+
+.unit-group{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+}
+
+.unit-group label{
+    font-size:12.5px;
+    font-weight:700;
+    color:#8a8a8a;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+}
+
+.unit-options{
+    display:flex;
+    background:#F1EFE9;
+    border-radius:12px;
+    padding:4px;
+    gap:4px;
+}
+
+.unit-options input[type="radio"]{
+    display:none;
+}
+
+.unit-options label.unit-btn{
+    flex:1;
+    text-align:center;
+    padding:10px 0;
+    font-size:13.5px;
+    font-weight:600;
+    color:#777;
+    border-radius:9px;
+    cursor:pointer;
+    transition:0.15s;
+    text-transform:none;
+    letter-spacing:0;
+}
+
+.unit-options input[type="radio"]:checked + label.unit-btn{
+    background:#333;
+    color:white;
+    box-shadow:0 3px 8px rgba(0,0,0,0.15);
+}
+
+.form-buttons{
+    display:flex;
+    gap:12px;
+    margin-top:4px;
+    flex-wrap: wrap;
+}
+
+.form-buttons button{
+    height:52px;
+    font-size:15px;
+    flex:1 1 120px;
+    border-radius:12px;
+}
+
+.btn-secondary{
+    background:#F1EFE9;
+    color:#555;
+}
+
+.btn-secondary:hover{
+    background:#e8e5dd;
+}
+
+.btn-primary{
+    background:#2d2d2d;
+    color:white;
+}
+
+.btn-primary:hover{
+    background:#1a1a1a;
+}
+
+.btn-success{
+    background:#27ae60;
+    color:white;
+}
+
+.btn-success:hover{
+    background:#219150;
+}
+
+.result{
+    text-align:center;
+    font-size:14.5px;
+    color:#333;
+    font-weight:600;
+    padding-top:2px;
+    border-top:1px solid #f0efe9;
+    min-height:20px;
+}
+
+/* ---- Room visual card ---- */
+.visual-card{
+    background:white;
+    border-radius:20px;
+    padding:26px 22px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.08);
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    align-items:center;
+}
+
+.visual-title{
+    font-size:18px;
+    font-weight:700;
+    color:#2d2d2d;
+    text-align:center;
+}
+
+.area-note{
+    font-size:13.5px;
+    color:#888;
+    font-weight:600;
+    text-align:center;
+}
+
+/* ---- Grid spacing stepper ---- */
+.grid-control{
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+}
+
+.grid-control label{
+    font-size:12.5px;
+    font-weight:700;
+    color:#8a8a8a;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+}
+
+.grid-input-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.grid-stepper{
+    display:flex;
+    align-items:center;
+    background:#FBFAF7;
+    border:1.5px solid #e4e2dc;
+    border-radius:12px;
+    overflow:hidden;
+    flex:1;
+    transition:0.2s;
+}
+
+.grid-stepper:focus-within{
+    border-color:#333;
+    background:white;
+}
+
+.grid-stepper input[type="number"]{
+    flex:1;
+    width:100%;
+    min-width:0;
+    height:46px;
+    border:none;
+    background:transparent;
+    text-align:center;
+    font-size:16px;
+    font-weight:700;
+    color:#333;
+    outline:none;
+    -moz-appearance:textfield;
+}
+
+.grid-stepper input[type="number"]::-webkit-outer-spin-button,
+.grid-stepper input[type="number"]::-webkit-inner-spin-button{
+    -webkit-appearance:none;
+    margin:0;
+}
+
+.stepper-btn{
+    height:46px;
+    width:40px;
+    flex-shrink:0;
+    border:none;
+    background:#F1EFE9;
+    color:#444;
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    user-select:none;
+    box-shadow:none;
+    border-radius:0;
+    transition:0.15s;
+}
+
+.stepper-btn:hover{
+    background:#e8e5dd;
+}
+
+.stepper-btn:active{
+    transform:none;
+    background:#ddd9cf;
+}
+
+.grid-unit-label{
+    font-size:13.5px;
+    font-weight:700;
+    color:#777;
+    min-width:20px;
+}
+
+.grid-auto-btn{
+    height:46px;
+    padding:0 14px;
+    border:none;
+    border-radius:12px;
+    background:#333;
+    color:white;
+    font-size:12.5px;
+    font-weight:700;
+    letter-spacing:0.3px;
+    cursor:pointer;
+    box-shadow:none;
+    flex-shrink:0;
+    transition:0.15s;
+}
+
+.grid-auto-btn:hover{
+    background:#1a1a1a;
+}
+
+.grid-auto-btn:active{
+    transform:none;
+}
+
+/* ---- Designer layout: sidebar + room stage ---- */
+.designer-layout{
+    display:flex;
+    gap:18px;
+    flex-wrap:wrap;
+    width:100%;
+    justify-content:center;
+}
+
+.sidebar{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    flex:1 1 210px;
+    max-width:230px;
+}
+
+.sidebar-btn{
+    height:50px;
+    border-radius:12px;
+    background:#F1EFE9;
+    color:#333;
+    font-size:13.5px;
+    font-weight:700;
+    text-align:left;
+    padding:0 16px;
+    box-shadow:none;
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.sidebar-btn:hover{
+    transform:none;
+    box-shadow:none;
+    background:#e8e5dd;
+}
+
+.sidebar-btn.active{
+    background:#2d2d2d;
+    color:white;
+}
+
+.sidebar-btn.active:hover{
+    background:#1a1a1a;
+}
+
+.side-panel{
+    background:#FBFAF7;
+    border:1.5px solid #eee;
+    border-radius:14px;
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+.panel-heading{
+    font-size:11.5px;
+    font-weight:700;
+    color:#8a8a8a;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+}
+
+.wall-options{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px;
+}
+
+.wall-btn{
+    height:40px;
+    border-radius:9px;
+    background:#F1EFE9;
+    color:#555;
+    font-size:12.5px;
+    font-weight:600;
+    box-shadow:none;
+}
+
+.wall-btn:hover{
+    transform:none;
+    box-shadow:none;
+}
+
+.wall-btn.selected{
+    background:#2d2d2d;
+    color:white;
+}
+
+.panel-field{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+}
+
+.panel-field label{
+    font-size:11px;
+    font-weight:700;
+    color:#8a8a8a;
+}
+
+.panel-field input[type="range"]{
+    width:100%;
+}
+
+.panel-field input[type="number"]{
+    height:40px;
+    border:1.5px solid #e4e2dc;
+    border-radius:9px;
+    padding:0 10px;
+    font-size:13.5px;
+    font-weight:600;
+    background:white;
+    outline:none;
+}
+
+.panel-add-btn{
+    height:44px;
+    border-radius:10px;
+    background:#2d2d2d;
+    color:white;
+    font-size:13.5px;
+    font-weight:700;
+    box-shadow:none;
+}
+
+.panel-add-btn:hover{
+    background:#1a1a1a;
+    transform:none;
+}
+
+.furniture-type-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px;
+}
+
+.furn-type-btn{
+    height:42px;
+    border-radius:9px;
+    background:#F1EFE9;
+    color:#555;
+    font-size:12px;
+    font-weight:600;
+    box-shadow:none;
+}
+
+.furn-type-btn:hover{
+    transform:none;
+    box-shadow:none;
+}
+
+.furn-type-btn.selected{
+    background:#2d2d2d;
+    color:white;
+}
+
+.bed-size-options{
+    display:flex;
+    gap:6px;
+}
+
+.bed-size-btn{
+    flex:1;
+    height:40px;
+    border-radius:9px;
+    background:#F1EFE9;
+    color:#555;
+    font-size:12px;
+    font-weight:600;
+    box-shadow:none;
+}
+
+.bed-size-btn:hover{
+    transform:none;
+    box-shadow:none;
+}
+
+.bed-size-btn.selected{
+    background:#2d2d2d;
+    color:white;
+}
+
+/* ---- Room stage ---- */
+.stage-column{
+    flex:2 1 300px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+}
+
+.stage-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.length-label{
+    writing-mode:vertical-rl;
+    transform:rotate(180deg);
+    font-size:12px;
+    font-weight:700;
+    color:#333;
+    white-space:nowrap;
+}
+
+.width-label{
+    font-size:12px;
+    font-weight:700;
+    color:#333;
+    text-align:center;
+}
+
+.stage-frame{
+    position:relative;
+    display:inline-block;
+}
+
+.room-stage{
+    position:relative;
+    background:#FBFDFC;
+    overflow:hidden;          /* prevents furniture leaving the room */
+    border:none;              /* remove normal border */
+}
+
+/* Sits on top of room-stage, but is NOT clipped */
+.furn-overlay{
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    pointer-events:none;
+    z-index:2000;
+}
+
+.door-layer, .window-layer{
+    position:absolute;
+    top:0;
+    left:0;
+    pointer-events:none;
+}
+
+.window-layer{
+    z-index:1001;
+}
+
+/* Room border always stays above furniture */
+.room-stage::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border:2.5px solid #2d2d2d;
+    pointer-events:none;
+    z-index:1000;
+    box-sizing:border-box;
+}
+
+.door-delete-btn, .window-delete-btn{
+    position:absolute;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:#c0392b;
+    color:white;
+    border:none;
+    font-size:11px;
+    line-height:18px;
+    text-align:center;
+    padding:0;
+    cursor:pointer;
+    box-shadow:0 2px 4px rgba(0,0,0,0.25);
+    z-index:1005;
+}
+
+.door-flip-btn{
+    position:absolute;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:#2d2d2d;
+    color:white;
+    border:none;
+    font-size:11px;
+    line-height:18px;
+    text-align:center;
+    padding:0;
+    cursor:pointer;
+    box-shadow:0 2px 4px rgba(0,0,0,0.25);
+    z-index:6;
+}
+
+.furn-item{
+    position:absolute;
+    border-radius:6px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    font-size:10px;
+    font-weight:700;
+    color:#333;
+    text-align:center;
+    cursor:grab;
+    user-select:none;
+    padding:2px;
+    line-height:1.15;
+    z-index:2;
+
+    border:none;
+    box-shadow: inset 0 0 0 1.5px rgba(0,0,0,0.22);
+}
+
+.furn-item:active{
+    cursor:grabbing;
+}
+
+.furn-item.selected{
+    box-shadow: inset 0 0 0 1.5px rgba(0,0,0,0.22), inset 0 0 0 3px #2d2d2d;
+    z-index:10;
+}
+
+.furn-sub{
+    font-size:8.5px;
+    font-weight:600;
+    color:#666;
+}
+
+.furn-toolbar{
+    position:absolute;
+    display:flex;
+    gap:4px;
+    pointer-events:auto;
+}
+
+.furn-toolbar button{
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    background:#2d2d2d;
+    color:white;
+    border:none;
+    font-size:12px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.25);
+    cursor:pointer;
+    padding:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.furn-toolbar button:hover{
+    background:#1a1a1a;
+}
+
+.hint-text{
+    font-size:11.5px;
+    color:#999;
+    text-align:center;
+    font-weight:500;
+}
+
+.collision-warning{
+    font-size:12px;
+    color:#c0392b;
+    text-align:center;
+    font-weight:700;
+}
+</style>
+
+</head>
+<body>
+
+<div class="container" id="mainContainer">
+
+    <!-- Initial choice buttons -->
+    <div id="choiceButtons">
+        <div class="container" style="gap:16px;">
+            <button onclick="showRoomForm()">
+                Rectangular shape room
+            </button>
+
+            <button onclick="location.href='irregular-room.html'">
+                Irregular shape Room
+            </button>
+
+<button onclick="showSavedRoomsPanel()" style="background:#e8e5dd; font-size:18px; height:56px;">
+                    📂 Load Saved Room
+                </button>
+            </div>
+            <div id="savedRoomsPanel" class="side-panel hidden" style="margin-top:18px;">
+                <div class="panel-heading">Saved Rooms</div>
+                <select id="savedRoomsSelect" size="4" style="width:100%; min-height:160px; border:1.5px solid #e4e2dc; border-radius:12px; padding:8px; background:white; font-size:14px; color:#333;"></select>
+                <div class="form-buttons" style="margin-top:10px; gap:8px;">
+                    <button class="btn-secondary" type="button" onclick="closeSavedRoomsPanel()">Close</button>
+                    <button class="btn-primary" type="button" onclick="loadSelectedSavedRoom()">Load</button>
+                    <button class="btn-secondary" type="button" onclick="deleteSelectedSavedRoom()">Delete</button>
+                </div>
+                <div class="result" id="savedRoomsMessage">No rooms saved yet.</div>
+        </div>
+    </div>
+
+    <!-- Width / Length form (hidden by default) -->
+    <div id="roomForm" class="form-card hidden">
+        <div class="form-title">Enter Room Dimensions</div>
+
+        <div class="field-group">
+            <label for="roomNameInput">Room name</label>
+            <input type="text" id="roomNameInput" placeholder="My Room">
+        </div>
+
+        <div class="dimensions-row">
+            <div class="field-group">
+                <label for="widthInput">Width</label>
+                <input type="number" id="widthInput" min="0" step="any" placeholder="10">
+            </div>
+
+            <div class="times-symbol">&times;</div>
+
+            <div class="field-group">
+                <label for="lengthInput">Length</label>
+                <input type="number" id="lengthInput" min="0" step="any" placeholder="12">
+            </div>
+        </div>
+
+        <div class="unit-group">
+            <label>Unit</label>
+            <div class="unit-options">
+                <input type="radio" name="unit" id="unit-ft" value="ft" checked>
+                <label class="unit-btn" for="unit-ft">ft</label>
+
+                <input type="radio" name="unit" id="unit-in" value="in">
+                <label class="unit-btn" for="unit-in">in</label>
+
+                <input type="radio" name="unit" id="unit-m" value="m">
+                <label class="unit-btn" for="unit-m">m</label>
+
+                <input type="radio" name="unit" id="unit-cm" value="cm">
+                <label class="unit-btn" for="unit-cm">cm</label>
+            </div>
+        </div>
+
+        <div class="form-buttons">
+            <button class="btn-secondary" onclick="goBack()">Back</button>
+            <button class="btn-primary" onclick="submitRoomForm()">Continue</button>
+        </div>
+
+        <div class="result" id="resultText"></div>
+    </div>
+
+    <!-- Room visual: sidebar + graph paper box (hidden by default) -->
+    <div id="roomVisual" class="visual-card hidden">
+        <div class="visual-title" id="visualTitle">Your Room</div>
+
+        <div class="designer-layout">
+
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <button class="sidebar-btn" id="btnDoorway" type="button">&#128682; Add Doorway</button>
+
+                <div class="side-panel hidden" id="doorwayPanel">
+                    <div class="panel-heading">Choose Wall</div>
+                    <div class="wall-options">
+                        <button class="wall-btn door-wall-btn" type="button" data-wall="top">Top</button>
+                        <button class="wall-btn door-wall-btn" type="button" data-wall="bottom">Bottom</button>
+                        <button class="wall-btn door-wall-btn" type="button" data-wall="left">Left</button>
+                        <button class="wall-btn door-wall-btn" type="button" data-wall="right">Right</button>
+                    </div>
+
+                    <div class="panel-field">
+                        <label>Position along wall</label>
+                        <input type="range" id="doorPosSlider" min="0" max="100" value="50">
+                    </div>
+
+                    <div class="panel-field">
+                        <label>Door size (<span class="doorUnitLabel">ft</span>)</label>
+                        <input type="number" id="doorSizeInput" min="0.1" step="0.1" value="3">
+                    </div>
+
+                    <button class="panel-add-btn" id="addDoorBtn" type="button">Add Door</button>
+                    <div class="collision-warning hidden" id="doorCollisionWarning">Can't place a door there — it overlaps furniture or another element.</div>
+                    <div class="hint-text">Tap the red &times; on a placed door to remove it, or the dark &#8646; button to flip its hinge side.</div>
+                </div>
+
+                <button class="sidebar-btn" id="btnWindow" type="button">&#129887; Add Window</button>
+
+                <div class="side-panel hidden" id="windowPanel">
+                    <div class="panel-heading">Choose Wall</div>
+                    <div class="wall-options">
+                        <button class="wall-btn win-wall-btn" type="button" data-wall="top">Top</button>
+                        <button class="wall-btn win-wall-btn" type="button" data-wall="bottom">Bottom</button>
+                        <button class="wall-btn win-wall-btn" type="button" data-wall="left">Left</button>
+                        <button class="wall-btn win-wall-btn" type="button" data-wall="right">Right</button>
+                    </div>
+
+                    <div class="panel-field">
+                        <label>Position along wall</label>
+                        <input type="range" id="winPosSlider" min="0" max="100" value="50">
+                    </div>
+
+                    <div class="panel-field">
+                        <label>Window width (<span class="winUnitLabel">ft</span>)</label>
+                        <input type="number" id="winSizeInput" min="0.1" step="0.1" value="3">
+                    </div>
+
+                    <button class="panel-add-btn" id="addWindowBtn" type="button">Add Window</button>
+                    <div class="collision-warning hidden" id="winCollisionWarning">Can't place a window there — it overlaps another opening.</div>
+                    <div class="hint-text">Tap the red &times; on a placed window to remove it.</div>
+                </div>
+
+                <button class="sidebar-btn" id="btnFurniture" type="button">&#128715; Add Furniture</button>
+
+                <div class="side-panel hidden" id="furniturePanel">
+                    <div class="panel-heading">Choose Item</div>
+                    <div class="furniture-type-grid">
+                        <button class="furn-type-btn" type="button" data-type="bed">Bed</button>
+                        <button class="furn-type-btn" type="button" data-type="cupboard">Cupboard</button>
+                        <button class="furn-type-btn" type="button" data-type="sidetable">Side Table</button>
+                        <button class="furn-type-btn" type="button" data-type="studytable">Study Table</button>
+                        <button class="furn-type-btn" type="button" data-type="chair">Chair</button>
+                        <button class="furn-type-btn" type="button" data-type="sofa">Sofa</button>
+                    </div>
+
+                    <div class="side-panel hidden" id="bedSizePanel" style="padding:0;border:none;background:transparent;">
+                        <div class="panel-heading">Bed Size</div>
+                        <div class="bed-size-options">
+                            <button class="bed-size-btn" type="button" data-size="queen">Queen</button>
+                            <button class="bed-size-btn" type="button" data-size="king">King</button>
+                            <button class="bed-size-btn" type="button" data-size="custom">Custom</button>
+                        </div>
+                    </div>
+
+                    <div class="side-panel hidden" id="furnDimsPanel" style="padding:0;border:none;background:transparent;">
+                        <div class="dimensions-row">
+                            <div class="field-group">
+                                <label>Width</label>
+                                <input type="number" id="furnWidthInput" min="0.1" step="0.1">
+                            </div>
+                            <div class="times-symbol">&times;</div>
+                            <div class="field-group">
+                                <label>Depth</label>
+                                <input type="number" id="furnDepthInput" min="0.1" step="0.1">
+                            </div>
+                        </div>
+                        <button class="panel-add-btn" id="addFurnBtn" type="button" style="margin-top:10px;width:100%;">Add to Room</button>
+                    </div>
+
+                    <div class="hint-text">Drag items to move. Select one to rotate or delete.</div>
+                </div>
+            </div>
+
+            <!-- Room stage -->
+            <div class="stage-column">
+                <div class="stage-row">
+                    <div class="length-label" id="lengthLabelSide"></div>
+                    <div class="stage-frame" id="stageFrame">
+                        <div class="room-stage" id="roomStage">
+                            <svg id="doorLayer" class="door-layer"></svg>
+                            <svg id="windowLayer" class="window-layer"></svg>
+                        </div>
+                        <div class="furn-overlay" id="furnOverlay"></div>
+                    </div>
+                </div>
+                <div class="width-label" id="widthLabelBottom"></div>
+            </div>
+
+        </div>
+
+        <div class="area-note" id="areaNote"></div>
+
+        <div class="grid-control">
+            <label>Grid Lines Every</label>
+            <div class="grid-input-row">
+                <div class="grid-stepper">
+                    <button type="button" class="stepper-btn" id="gridDecrease">&#9660;</button>
+                    <input type="number" id="gridSpacingInput" min="0.1" step="1" value="1">
+                    <button type="button" class="stepper-btn" id="gridIncrease">&#9650;</button>
+                </div>
+                <span class="grid-unit-label" id="gridUnitLabel">ft</span>
+                <button type="button" class="grid-auto-btn" id="gridAutoBtn">Auto</button>
+            </div>
+        </div>
+
+        <div class="form-buttons visual-buttons">
+            <button class="btn-success" onclick="saveRoomBlock()">💾 Save Room</button>
+            <button class="btn-secondary" onclick="editDimensions()">Edit</button>
+            <button class="btn-primary" onclick="goToStart()">Start Over</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+/* ============ Navigation ============ */
+function showRoomForm(){
+    document.getElementById('choiceButtons').classList.add('hidden');
+    document.getElementById('roomForm').classList.remove('hidden');
+}
+
+function goBack(){
+    document.getElementById('roomForm').classList.add('hidden');
+    document.getElementById('choiceButtons').classList.remove('hidden');
+    document.getElementById('resultText').textContent = '';
+}
+
+function editDimensions(){
+    document.getElementById('roomVisual').classList.add('hidden');
+    document.getElementById('mainContainer').classList.remove('wide-mode');
+    document.getElementById('roomForm').classList.remove('hidden');
+}
+
+function goToStart(){
+    document.getElementById('roomVisual').classList.add('hidden');
+    document.getElementById('mainContainer').classList.remove('wide-mode');
+    document.getElementById('choiceButtons').classList.remove('hidden');
+    document.getElementById('resultText').textContent = '';
+    document.getElementById('roomNameInput').value = '';
+    document.getElementById('widthInput').value = '';
+    document.getElementById('lengthInput').value = '';
+}
+
+/* ============ Unit helpers ============ */
+const FEET_TO = { ft:1, in:12, m:0.3048, cm:30.48 };
+const INCH_TO = { in:1, ft:1/12, m:0.0254, cm:2.54 };
+
+function fromFeet(v, unit){ return v * FEET_TO[unit]; }
+function fromInches(v, unit){ return v * INCH_TO[unit]; }
+function round2(n){ return Math.round(n * 100) / 100; }
+
+/* ============ Room state ============ */
+let currentRoom = { width:0, length:0, unit:'ft', step:1, cellPx:30, boxW:0, boxH:0, pxPerUnit:30, name:'Untitled Room' };
+let doors = [];
+let windows = [];
+let furniture = [];
+let selectedFurnId = null;
+let pendingDoorWall = null;
+let pendingDoor = null;
+let pendingWinWall = null;
+let pendingWindow = null;
+let pendingFurnType = null;
+
+function uid(){ return 'id' + Math.random().toString(36).slice(2, 9); }
+
+/* ============ Save & Load Logic ============ */
+function saveRoomBlock(){
+    const roomData = {
+        id: currentRoom.id || uid(),
+        type: 'rectangular',
+        timestamp: new Date().toISOString(),
+        name: currentRoom.name || 'Untitled Room',
+        room: currentRoom,
+        doors: doors,
+        windows: windows,
+        furniture: furniture
+    };
+
+    const savedRooms = getSavedRooms();
+    savedRooms[roomData.id] = roomData;
+    localStorage.setItem('savedRooms', JSON.stringify(savedRooms));
+
+    currentRoom.id = roomData.id;
+    currentRoom.name = roomData.name;
+
+    alert(`Room "${roomData.name}" saved locally. Open "Load Saved Room" to reload it anytime.`);
+}
+
+function getSavedRooms(){
+    try {
+        const raw = localStorage.getItem('savedRooms');
+        return raw ? JSON.parse(raw) : {};
+    } catch(err){
+        return {};
+    }
+}
+
+function showSavedRoomsPanel(){
+    refreshSavedRoomsPanel();
+    document.getElementById('savedRoomsPanel').classList.remove('hidden');
+}
+
+function closeSavedRoomsPanel(){
+    document.getElementById('savedRoomsPanel').classList.add('hidden');
+}
+
+function refreshSavedRoomsPanel(){
+    const savedRooms = getSavedRooms();
+    const select = document.getElementById('savedRoomsSelect');
+    const message = document.getElementById('savedRoomsMessage');
+    select.innerHTML = '';
+
+    const entries = Object.values(savedRooms)
+        .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    if(entries.length === 0){
+        message.textContent = 'No saved rooms yet.';
+        return;
+    }
+
+    entries.forEach(room => {
+        const option = document.createElement('option');
+        option.value = room.id;
+        const typeLabel = room.type === 'irregular' ? 'Irregular' : 'Rectangular';
+        let subtitle = typeLabel;
+        if(room.type === 'rectangular' && room.room){
+            subtitle = `${typeLabel}: ${room.room.width}${room.room.unit}×${room.room.length}${room.room.unit}`;
+        }
+        option.textContent = `${room.name} — ${subtitle}`;
+        select.appendChild(option);
+    });
+
+    message.textContent = `Saved rooms: ${entries.length}`;
+}
+
+function loadSelectedSavedRoom(){
+    const select = document.getElementById('savedRoomsSelect');
+    if(!select.value){
+        alert('Please select a saved room first.');
+        return;
+    }
+    const savedRooms = getSavedRooms();
+    const roomData = savedRooms[select.value];
+    if(!roomData){
+        alert('Saved room not found.');
+        refreshSavedRoomsPanel();
+        return;
+    }
+    if(roomData.type === 'rectangular'){
+        loadRoomData(roomData);
+        closeSavedRoomsPanel();
+        return;
+    }
+    if(roomData.type === 'irregular'){
+        localStorage.setItem('loadRoomId', roomData.id);
+        location.href = 'irregular-room.html';
+        return;
+    }
+    alert('Unknown saved room type.');
+}
+
+function deleteSelectedSavedRoom(){
+    const select = document.getElementById('savedRoomsSelect');
+    if(!select.value){
+        alert('Please select a saved room to delete.');
+        return;
+    }
+    const savedRooms = getSavedRooms();
+    delete savedRooms[select.value];
+    localStorage.setItem('savedRooms', JSON.stringify(savedRooms));
+    refreshSavedRoomsPanel();
+}
+
+function loadRoomData(data){
+    doors = data.doors || [];
+    windows = data.windows || [];
+    furniture = data.furniture || [];
+    currentRoom = Object.assign({}, data.room, { name: data.name || data.room.name || 'Untitled Room', id: data.id || data.room.id });
+
+    document.getElementById('roomNameInput').value = currentRoom.name;
+    document.getElementById('widthInput').value = currentRoom.width;
+    document.getElementById('lengthInput').value = currentRoom.length;
+    const unitRadio = document.querySelector(`input[name="unit"][value="${currentRoom.unit}"]`);
+    if(unitRadio) unitRadio.checked = true;
+
+    const gridInput = document.getElementById('gridSpacingInput');
+    gridInput.value = currentRoom.step;
+    document.getElementById('gridUnitLabel').textContent = currentRoom.unit;
+
+    renderRoomBox(currentRoom.width, currentRoom.length, currentRoom.unit, currentRoom.step);
+
+    document.getElementById('choiceButtons').classList.add('hidden');
+    document.getElementById('roomForm').classList.add('hidden');
+    document.getElementById('roomVisual').classList.remove('hidden');
+    document.getElementById('mainContainer').classList.add('wide-mode');
+}
+
+/* ============ Dimension form submit ============ */
+function submitRoomForm(){
+    const nameValue = document.getElementById('roomNameInput').value.trim() || 'Untitled Room';
+    const width = parseFloat(document.getElementById('widthInput').value);
+    const length = parseFloat(document.getElementById('lengthInput').value);
+    const unit = document.querySelector('input[name="unit"]:checked').value;
+
+    if(isNaN(width) || isNaN(length) || width <= 0 || length <= 0){
+        document.getElementById('resultText').textContent = 'Please enter valid width and length.';
+        document.getElementById('resultText').style.color = '#c0392b';
+        return;
+    }
+
+    document.getElementById('resultText').style.color = '#333';
+    document.getElementById('resultText').textContent = '';
+
+    doors = [];
+    windows = [];
+    furniture = [];
+    selectedFurnId = null;
+    pendingDoorWall = null;
+    pendingDoor = null;
+    pendingWinWall = null;
+    pendingWindow = null;
+    pendingFurnType = null;
+    closeAllPanels();
+
+    currentRoom.name = nameValue;
+    currentRoom.width = width;
+    currentRoom.length = length;
+    currentRoom.unit = unit;
+
+    const autoStep = niceStep(Math.max(width, length));
+    const gridInput = document.getElementById('gridSpacingInput');
+    gridInput.value = trimNumber(autoStep);
+    gridInput.step = (autoStep < 1) ? 0.1 : (autoStep < 5 ? 0.5 : 1);
+    document.getElementById('gridUnitLabel').textContent = unit;
+    document.querySelectorAll('.doorUnitLabel, .winUnitLabel').forEach(el => el.textContent = unit);
+    document.getElementById('doorSizeInput').value = round2(fromFeet(3, unit));
+    document.getElementById('winSizeInput').value = round2(fromFeet(3, unit));
+
+    renderRoomBox(width, length, unit, autoStep);
+
+    document.getElementById('roomForm').classList.add('hidden');
+    document.getElementById('roomVisual').classList.remove('hidden');
+    document.getElementById('mainContainer').classList.add('wide-mode');
+}
+
+function trimNumber(n){ return parseFloat(n.toFixed(3)); }
+
+function applyGridSpacing(){
+    const gridInput = document.getElementById('gridSpacingInput');
+    const spacing = parseFloat(gridInput.value);
+    if(isNaN(spacing) || spacing <= 0) return;
+    renderRoomBox(currentRoom.width, currentRoom.length, currentRoom.unit, spacing);
+}
+
+document.getElementById('gridSpacingInput').addEventListener('input', applyGridSpacing);
+
+document.getElementById('gridIncrease').addEventListener('click', function(){
+    const gridInput = document.getElementById('gridSpacingInput');
+    const stepAmount = parseFloat(gridInput.step) || 1;
+    const current = parseFloat(gridInput.value) || 0;
+    gridInput.value = trimNumber(current + stepAmount);
+    applyGridSpacing();
+});
+
+document.getElementById('gridDecrease').addEventListener('click', function(){
+    const gridInput = document.getElementById('gridSpacingInput');
+    const stepAmount = parseFloat(gridInput.step) || 1;
+    const current = parseFloat(gridInput.value) || 0;
+    const next = current - stepAmount;
+    gridInput.value = trimNumber(next > 0 ? next : stepAmount);
+    applyGridSpacing();
+});
+
+document.getElementById('gridAutoBtn').addEventListener('click', function(){
+    const autoStep = niceStep(Math.max(currentRoom.width, currentRoom.length));
+    const gridInput = document.getElementById('gridSpacingInput');
+    gridInput.value = trimNumber(autoStep);
+    gridInput.step = (autoStep < 1) ? 0.1 : (autoStep < 5 ? 0.5 : 1);
+    renderRoomBox(currentRoom.width, currentRoom.length, currentRoom.unit, autoStep);
+});
+
+function niceStep(range){
+    const roughStep = range / 8;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+    const normalized = roughStep / magnitude;
+    let step;
+    if(normalized < 1.5) step = 1;
+    else if(normalized < 3) step = 2;
+    else if(normalized < 7) step = 5;
+    else step = 10;
+    return step * magnitude;
+}
+
+/* ============ Room box rendering ============ */
+function renderRoomBox(width, length, unit, spacing){
+    const step = spacing;
+    const boxMax = 280;
+    const longerDivisions = Math.max(width, length) / step;
+    let cellPx = boxMax / longerDivisions;
+    cellPx = Math.max(6, Math.min(cellPx, 60));
+
+    const boxW = (width / step) * cellPx;
+    const boxH = (length / step) * cellPx;
+
+    currentRoom.width = width;
+    currentRoom.length = length;
+    currentRoom.unit = unit;
+    currentRoom.step = step;
+    currentRoom.cellPx = cellPx;
+    currentRoom.boxW = boxW;
+    currentRoom.boxH = boxH;
+    currentRoom.pxPerUnit = cellPx / step;
+
+    furniture.forEach(f => {
+        f.xUnits = Math.max(0, Math.min(f.xUnits, Math.max(0, width - f.wUnits)));
+        f.yUnits = Math.max(0, Math.min(f.yUnits, Math.max(0, length - f.dUnits)));
+    });
+    doors.forEach(d => {
+        const wallLen = (d.wall === 'top' || d.wall === 'bottom') ? width : length;
+        d.posUnits = Math.max(0, Math.min(d.posUnits, Math.max(0, wallLen - d.sizeUnits)));
+    });
+    windows.forEach(w => {
+        const wallLen = (w.wall === 'top' || w.wall === 'bottom') ? width : length;
+        w.posUnits = Math.max(0, Math.min(w.posUnits, Math.max(0, wallLen - w.sizeUnits)));
+    });
+
+    const stage = document.getElementById('roomStage');
+    stage.style.width = boxW + 'px';
+    stage.style.height = boxH + 'px';
+    stage.style.backgroundImage =
+        `repeating-linear-gradient(to right, #dfe6e0 0, #dfe6e0 1px, transparent 1px, transparent ${cellPx}px),` +
+        `repeating-linear-gradient(to bottom, #dfe6e0 0, #dfe6e0 1px, transparent 1px, transparent ${cellPx}px)`;
+
+    document.getElementById('widthLabelBottom').textContent = `${width} ${unit}`;
+    document.getElementById('lengthLabelSide').textContent = `${length} ${unit}`;
+
+    const area = round2(width * length);
+    document.getElementById('areaNote').textContent = `Area: ${area} sq ${unit}`;
+    const titleText = currentRoom.name ? `${currentRoom.name} — ${width} ${unit} × ${length} ${unit}` : `${width} ${unit} × ${length} ${unit} Room`;
+    document.getElementById('visualTitle').textContent = titleText;
+
+    renderDoorsLayer();
+    renderWindowsLayer();
+    renderFurnitureLayer();
+}
+
+/* ============ Sidebar panel toggling ============ */
+function closeAllPanels(){
+    document.getElementById('doorwayPanel').classList.add('hidden');
+    document.getElementById('windowPanel').classList.add('hidden');
+    document.getElementById('furniturePanel').classList.add('hidden');
+    document.getElementById('bedSizePanel').classList.add('hidden');
+    document.getElementById('furnDimsPanel').classList.add('hidden');
+    document.getElementById('btnDoorway').classList.remove('active');
+    document.getElementById('btnWindow').classList.remove('active');
+    document.getElementById('btnFurniture').classList.remove('active');
+    document.querySelectorAll('.wall-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('.furn-type-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('.bed-size-btn').forEach(b => b.classList.remove('selected'));
+    pendingDoorWall = null;
+    pendingDoor = null;
+    pendingWinWall = null;
+    pendingWindow = null;
+    pendingFurnType = null;
+}
+
+document.getElementById('btnDoorway').addEventListener('click', function(){
+    const panel = document.getElementById('doorwayPanel');
+    const isOpen = !panel.classList.contains('hidden');
+    closeAllPanels();
+    if(!isOpen){
+        panel.classList.remove('hidden');
+        this.classList.add('active');
+    }
+    renderDoorsLayer();
+    renderWindowsLayer();
+});
+
+document.getElementById('btnWindow').addEventListener('click', function(){
+    const panel = document.getElementById('windowPanel');
+    const isOpen = !panel.classList.contains('hidden');
+    closeAllPanels();
+    if(!isOpen){
+        panel.classList.remove('hidden');
+        this.classList.add('active');
+    }
+    renderDoorsLayer();
+    renderWindowsLayer();
+});
+
+document.getElementById('btnFurniture').addEventListener('click', function(){
+    const panel = document.getElementById('furniturePanel');
+    const isOpen = !panel.classList.contains('hidden');
+    closeAllPanels();
+    if(!isOpen){
+        panel.classList.remove('hidden');
+        this.classList.add('active');
+    }
+    renderDoorsLayer();
+    renderWindowsLayer();
+});
+
+/* ============ Doorway logic ============ */
+document.querySelectorAll('.door-wall-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('.door-wall-btn').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        pendingDoorWall = this.dataset.wall;
+        document.getElementById('doorPosSlider').value = 50;
+        updatePendingDoorPreview();
+    });
+});
+
+document.getElementById('doorPosSlider').addEventListener('input', updatePendingDoorPreview);
+document.getElementById('doorSizeInput').addEventListener('input', updatePendingDoorPreview);
+
+function updatePendingDoorPreview(){
+    document.getElementById('doorCollisionWarning').classList.add('hidden');
+    if(!pendingDoorWall){ pendingDoor = null; renderDoorsLayer(); return; }
+
+    const unit = currentRoom.unit;
+    const wallLen = (pendingDoorWall === 'top' || pendingDoorWall === 'bottom') ? currentRoom.width : currentRoom.length;
+    let sizeUnits = parseFloat(document.getElementById('doorSizeInput').value);
+    if(isNaN(sizeUnits) || sizeUnits <= 0) sizeUnits = round2(fromFeet(3, unit));
+    sizeUnits = Math.min(sizeUnits, wallLen);
+
+    const sliderPct = parseFloat(document.getElementById('doorPosSlider').value) / 100;
+    const maxPos = Math.max(0, wallLen - sizeUnits);
+    const posUnits = sliderPct * maxPos;
+
+    pendingDoor = { wall: pendingDoorWall, posUnits, sizeUnits, flip: false, pending:true };
+    renderDoorsLayer();
+}
+
+document.getElementById('addDoorBtn').addEventListener('click', function(){
+    if(!pendingDoor){
+        updatePendingDoorPreview();
+        if(!pendingDoor) return;
+    }
+
+    const warning = document.getElementById('doorCollisionWarning');
+    const candidateRect = doorBlockRect(pendingDoor);
+    const overlapsFurniture = furniture.some(f => rectsOverlap(candidateRect, furnitureRectPx(f)));
+    const overlapsDoor = doors.some(d => rectsOverlap(candidateRect, doorBlockRect(d)));
+    const overlapsWindow = windows.some(w => rectsOverlap(candidateRect, windowBlockRect(w)));
+
+    if(overlapsFurniture || overlapsDoor || overlapsWindow){
+        warning.textContent = "Can't place a door there — it overlaps another element.";
+        warning.classList.remove('hidden');
+        return;
+    }
+    warning.classList.add('hidden');
+
+    doors.push({ id: uid(), wall: pendingDoor.wall, posUnits: pendingDoor.posUnits, sizeUnits: pendingDoor.sizeUnits, flip: pendingDoor.flip });
+
+    document.querySelectorAll('.door-wall-btn').forEach(b => b.classList.remove('selected'));
+    pendingDoorWall = null;
+    pendingDoor = null;
+    renderDoorsLayer();
+});
+
+function doorGeometry(d){
+    const sizePx = d.sizeUnits * currentRoom.pxPerUnit;
+    const posPx = d.posUnits * currentRoom.pxPerUnit;
+    const boxW = currentRoom.boxW, boxH = currentRoom.boxH;
+    let wallStart, wallDir, inward;
+
+    switch(d.wall){
+        case 'top':    wallStart = {x:0, y:0};    wallDir = {x:1, y:0};  inward = {x:0, y:1};  break;
+        case 'bottom': wallStart = {x:0, y:boxH}; wallDir = {x:1, y:0};  inward = {x:0, y:-1}; break;
+        case 'left':   wallStart = {x:0, y:0};    wallDir = {x:0, y:1};  inward = {x:1, y:0};  break;
+        case 'right':  wallStart = {x:boxW, y:0}; wallDir = {x:0, y:1};  inward = {x:-1, y:0}; break;
+    }
+
+    const segStart = { x: wallStart.x + wallDir.x*posPx, y: wallStart.y + wallDir.y*posPx };
+    const segEnd = { x: segStart.x + wallDir.x*sizePx, y: segStart.y + wallDir.y*sizePx };
+
+    const hinge = d.flip ? segEnd : segStart;
+    const arcStart = d.flip ? segStart : segEnd;
+    const openTip = { x: hinge.x + inward.x*sizePx, y: hinge.y + inward.y*sizePx };
+
+    return { hinge, arcStart, openTip, sizePx, wall:d.wall };
+}
+
+function doorBlockRect(d){
+    const geom = doorGeometry(d);
+    const xs = [geom.hinge.x, geom.arcStart.x, geom.openTip.x];
+    const ys = [geom.hinge.y, geom.arcStart.y, geom.openTip.y];
+    const x = Math.min(...xs), x2 = Math.max(...xs);
+    const y = Math.min(...ys), y2 = Math.max(...ys);
+    return { x, y, w: x2 - x, h: y2 - y };
+}
+
+/* ============ Window Logic ============ */
+document.querySelectorAll('.win-wall-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('.win-wall-btn').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        pendingWinWall = this.dataset.wall;
+        document.getElementById('winPosSlider').value = 50;
+        updatePendingWindowPreview();
+    });
+});
+
+document.getElementById('winPosSlider').addEventListener('input', updatePendingWindowPreview);
+document.getElementById('winSizeInput').addEventListener('input', updatePendingWindowPreview);
+
+function updatePendingWindowPreview(){
+    document.getElementById('winCollisionWarning').classList.add('hidden');
+    if(!pendingWinWall){ pendingWindow = null; renderWindowsLayer(); return; }
+
+    const unit = currentRoom.unit;
+    const wallLen = (pendingWinWall === 'top' || pendingWinWall === 'bottom') ? currentRoom.width : currentRoom.length;
+    let sizeUnits = parseFloat(document.getElementById('winSizeInput').value);
+    if(isNaN(sizeUnits) || sizeUnits <= 0) sizeUnits = round2(fromFeet(3, unit));
+    sizeUnits = Math.min(sizeUnits, wallLen);
+
+    const sliderPct = parseFloat(document.getElementById('winPosSlider').value) / 100;
+    const maxPos = Math.max(0, wallLen - sizeUnits);
+    const posUnits = sliderPct * maxPos;
+
+    pendingWindow = { wall: pendingWinWall, posUnits, sizeUnits, pending:true };
+    renderWindowsLayer();
+}
+
+document.getElementById('addWindowBtn').addEventListener('click', function(){
+    if(!pendingWindow){
+        updatePendingWindowPreview();
+        if(!pendingWindow) return;
+    }
+
+    const warning = document.getElementById('winCollisionWarning');
+    const candidateRect = windowBlockRect(pendingWindow);
+    const overlapsDoor = doors.some(d => rectsOverlap(candidateRect, doorBlockRect(d)));
+    const overlapsWindow = windows.some(w => rectsOverlap(candidateRect, windowBlockRect(w)));
+
+    if(overlapsDoor || overlapsWindow){
+        warning.textContent = "Can't place a window there — it overlaps another opening.";
+        warning.classList.remove('hidden');
+        return;
+    }
+    warning.classList.add('hidden');
+
+    windows.push({ id: uid(), wall: pendingWindow.wall, posUnits: pendingWindow.posUnits, sizeUnits: pendingWindow.sizeUnits });
+
+    document.querySelectorAll('.win-wall-btn').forEach(b => b.classList.remove('selected'));
+    pendingWinWall = null;
+    pendingWindow = null;
+    renderWindowsLayer();
+});
+
+function windowBlockRect(w){
+    const posPx = w.posUnits * currentRoom.pxPerUnit;
+    const sizePx = w.sizeUnits * currentRoom.pxPerUnit;
+    const depth = 8;
+    
+    switch(w.wall){
+        case 'top':    return { x: posPx, y: 0, w: sizePx, h: depth };
+        case 'bottom': return { x: posPx, y: currentRoom.boxH - depth, w: sizePx, h: depth };
+        case 'left':   return { x: 0, y: posPx, w: depth, h: sizePx };
+        case 'right':  return { x: currentRoom.boxW - depth, y: posPx, w: depth, h: sizePx };
+    }
+}
+
+function windowSvgMarkup(w, pending){
+    const rect = windowBlockRect(w);
+    const fillCol = pending ? 'rgba(173, 216, 230, 0.5)' : '#A2D2FF';
+    const strokeCol = pending ? '#777' : '#2b2b2b';
+    const dash = pending ? '3 3' : 'none';
+
+    let panes = '';
+    if (w.wall === 'top' || w.wall === 'bottom') {
+        const midY = rect.y + rect.h / 2;
+        panes = `<line x1="${rect.x}" y1="${midY}" x2="${rect.x + rect.w}" y2="${midY}" stroke="${strokeCol}" stroke-width="1.2"/>`;
+    } else {
+        const midX = rect.x + rect.w / 2;
+        panes = `<line x1="${midX}" y1="${rect.y}" x2="${midX}" y2="${rect.y + rect.h}" stroke="${strokeCol}" stroke-width="1.2"/>`;
+    }
+
+    return `
+      <rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" fill="#FFFFFF" stroke="none"/>
+      <rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" fill="${fillCol}" stroke="${strokeCol}" stroke-width="1.5" stroke-dasharray="${dash}"/>
+      ${panes}
+    `;
+}
+
+function renderWindowsLayer(){
+    const svg = document.getElementById('windowLayer');
+    svg.setAttribute('width', currentRoom.boxW);
+    svg.setAttribute('height', currentRoom.boxH);
+    svg.setAttribute('viewBox', `0 0 ${currentRoom.boxW} ${currentRoom.boxH}`);
+
+    let content = '';
+    windows.forEach(w => content += windowSvgMarkup(w, false));
+    if (pendingWindow) content += windowSvgMarkup(pendingWindow, true);
+    svg.innerHTML = content;
+
+    document.querySelectorAll('.window-delete-btn').forEach(b => b.remove());
+
+    const stage = document.getElementById('roomStage');
+
+    windows.forEach(w => {
+        const rect = windowBlockRect(w);
+        const btnSize = 18;
+        const delBtn = document.createElement('button');
+        delBtn.className = 'window-delete-btn';
+        delBtn.type = 'button';
+        delBtn.textContent = '×';
+
+        let left, top;
+        switch(w.wall){
+            case 'top':
+                left = rect.x + rect.w / 2 - btnSize / 2;
+                top = 2;
+                break;
+            case 'bottom':
+                left = rect.x + rect.w / 2 - btnSize / 2;
+                top = currentRoom.boxH - btnSize - 2;
+                break;
+            case 'left':
+                left = 2;
+                top = rect.y + rect.h / 2 - btnSize / 2;
+                break;
+            case 'right':
+                left = currentRoom.boxW - btnSize - 2;
+                top = rect.y + rect.h / 2 - btnSize / 2;
+                break;
+        }
+
+        delBtn.style.left = `${left}px`;
+        delBtn.style.top = `${top}px`;
+
+        delBtn.addEventListener('click', function(){
+            windows = windows.filter(x => x.id !== w.id);
+            renderWindowsLayer();
+        });
+
+        stage.appendChild(delBtn);
+    });
+}
+
+function rectsOverlap(a, b, eps){
+    eps = eps === undefined ? 0.5 : eps;
+    return a.x < b.x + b.w - eps &&
+           a.x + a.w > b.x + eps &&
+           a.y < b.y + b.h - eps &&
+           a.y + a.h > b.y + eps;
+}
+
+function furnitureRectPx(f){
+    const eff = effectiveSize(f);
+    const ppu = currentRoom.pxPerUnit;
+    return { x: f.xUnits * ppu, y: f.yUnits * ppu, w: eff.wUnits * ppu, h: eff.dUnits * ppu };
+}
+
+function collidesWithFurnitureOrDoors(rect, excludeFurnId){
+    for(const other of furniture){
+        if(other.id === excludeFurnId) continue;
+        if(rectsOverlap(rect, furnitureRectPx(other))) return true;
+    }
+    for(const d of doors){
+        if(rectsOverlap(rect, doorBlockRect(d))) return true;
+    }
+    return false;
+}
+
+function doorSvgMarkup(geom, pending){
+    const { hinge, arcStart, openTip, sizePx, wall } = geom;
+    const steps = 20;
+    const a0 = Math.atan2(arcStart.y - hinge.y, arcStart.x - hinge.x);
+    let a1 = Math.atan2(openTip.y - hinge.y, openTip.x - hinge.x);
+    let diff = a1 - a0;
+    while(diff > Math.PI) diff -= 2*Math.PI;
+    while(diff < -Math.PI) diff += 2*Math.PI;
+
+    let pts = '';
+    for(let i = 0; i <= steps; i++){
+        const a = a0 + diff * (i/steps);
+        const x = hinge.x + sizePx * Math.cos(a);
+        const y = hinge.y + sizePx * Math.sin(a);
+        pts += `${x.toFixed(1)},${y.toFixed(1)} `;
+    }
+
+    const fillPie = pending ? 'rgba(150,150,150,0.20)' : 'rgba(120,120,120,0.32)';
+    const dash = pending ? '4 3' : 'none';
+    const strokeCol = pending ? '#aaa' : '#666';
+
+    const t = 5;
+    let slab;
+    if(wall === 'top')    slab = { x: Math.min(hinge.x, arcStart.x), y: 0, w: Math.abs(arcStart.x-hinge.x), h: t };
+    else if(wall === 'bottom') slab = { x: Math.min(hinge.x, arcStart.x), y: currentRoom.boxH-t, w: Math.abs(arcStart.x-hinge.x), h: t };
+    else if(wall === 'left') slab = { x: 0, y: Math.min(hinge.y, arcStart.y), w: t, h: Math.abs(arcStart.y-hinge.y) };
+    else slab = { x: currentRoom.boxW-t, y: Math.min(hinge.y, arcStart.y), w: t, h: Math.abs(arcStart.y-hinge.y) };
+
+    const hingeDot = `<circle cx="${hinge.x.toFixed(1)}" cy="${hinge.y.toFixed(1)}" r="3" fill="${strokeCol}"/>`;
+
+    return `
+      <rect x="${slab.x}" y="${slab.y}" width="${slab.w}" height="${slab.h}" fill="${pending?'#cfcfcf':'#8f8f8f'}" stroke-dasharray="${dash}"/>
+      <polygon points="${hinge.x},${hinge.y} ${pts}" fill="${fillPie}" stroke="${strokeCol}" stroke-width="1" stroke-dasharray="${dash}"/>
+      <line x1="${hinge.x}" y1="${hinge.y}" x2="${openTip.x}" y2="${openTip.y}" stroke="${strokeCol}" stroke-width="1.5" stroke-dasharray="${dash}"/>
+      ${hingeDot}
+    `;
+}
+
+function renderDoorsLayer() {
+  const svg = document.getElementById('doorLayer');
+  svg.setAttribute('width', currentRoom.boxW);
+  svg.setAttribute('height', currentRoom.boxH);
+  svg.setAttribute('viewBox', `0 0 ${currentRoom.boxW} ${currentRoom.boxH}`);
+
+  let content = '';
+  doors.forEach(d => content += doorSvgMarkup(doorGeometry(d), false));
+  if (pendingDoor) content += doorSvgMarkup(doorGeometry(pendingDoor), true);
+  svg.innerHTML = content;
+
+  document.querySelectorAll('.door-delete-btn, .door-flip-btn').forEach(b => b.remove());
+
+  const stage = document.getElementById('roomStage');
+
+  doors.forEach(d => {
+    const geom = doorGeometry(d);
+    const btnSize = 18;
+    const pad = 4;
+    const gap = 3;
+    const pairSpan = btnSize * 2 + gap;
+
+    let pairStart, fixedCoord, horizontal;
+    switch (d.wall) {
+      case 'top':
+        pairStart = geom.hinge.x - pairSpan/2;
+        fixedCoord = pad;
+        horizontal = true;
+        break;
+      case 'bottom':
+        pairStart = geom.hinge.x - pairSpan/2;
+        fixedCoord = currentRoom.boxH - btnSize - pad;
+        horizontal = true;
+        break;
+      case 'left':
+        pairStart = geom.hinge.y - pairSpan/2;
+        fixedCoord = pad;
+        horizontal = false;
+        break;
+      case 'right':
+        pairStart = geom.hinge.y - pairSpan/2;
+        fixedCoord = currentRoom.boxW - btnSize - pad;
+        horizontal = false;
+        break;
+    }
+
+    const stageLen = horizontal ? currentRoom.boxW : currentRoom.boxH;
+    pairStart = Math.max(pad, Math.min(pairStart, stageLen - pairSpan - pad));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'door-delete-btn';
+    delBtn.type = 'button';
+    delBtn.textContent = '×';
+
+    const flipBtn = document.createElement('button');
+    flipBtn.className = 'door-flip-btn';
+    flipBtn.type = 'button';
+    flipBtn.title = 'Flip hinge side';
+    flipBtn.innerHTML = '&#8646;';
+
+    if(horizontal){
+      delBtn.style.left = `${pairStart}px`;
+      delBtn.style.top = `${fixedCoord}px`;
+      flipBtn.style.left = `${pairStart + btnSize + gap}px`;
+      flipBtn.style.top = `${fixedCoord}px`;
+    } else {
+      delBtn.style.left = `${fixedCoord}px`;
+      delBtn.style.top = `${pairStart}px`;
+      flipBtn.style.left = `${fixedCoord}px`;
+      flipBtn.style.top = `${pairStart + btnSize + gap}px`;
+    }
+
+    delBtn.addEventListener('click', function() {
+      doors = doors.filter(x => x.id != d.id);
+      renderDoorsLayer();
+    });
+
+    flipBtn.addEventListener('click', function() {
+      const prevFlip = d.flip;
+      d.flip = !d.flip;
+      const rect = doorBlockRect(d);
+      const overlapsFurniture = furniture.some(f => rectsOverlap(rect, furnitureRectPx(f)));
+      const overlapsDoor = doors.some(other => other.id !== d.id && rectsOverlap(rect, doorBlockRect(other)));
+      const overlapsWindow = windows.some(w => rectsOverlap(rect, windowBlockRect(w)));
+      if(overlapsFurniture || overlapsDoor || overlapsWindow){
+        d.flip = prevFlip; 
+        alert("Can't flip this door's hinge — it would swing into something.");
+        return;
+      }
+      renderDoorsLayer();
+    });
+
+    stage.appendChild(delBtn);
+    stage.appendChild(flipBtn);
+  });
+}
+
+/* ============ Furniture logic ============ */
+const FURN_DEFAULTS_FT = {
+    cupboard:  { w:2,   d:1.5, label:'Cupboard' },
+    sidetable: { w:1.5, d:1.5, label:'Side Table' },
+    studytable:{ w:4,   d:2,   label:'Study Table' },
+    chair:     { w:1.6, d:1.6, label:'Chair' },
+    sofa:      { w:6,   d:2.5, label:'Sofa' }
+};
+
+const BED_SIZES_IN = {
+    queen: { w:60, d:80, label:'Queen Bed' },
+    king:  { w:76, d:80, label:'King Bed' }
+};
+
+const FURN_COLORS = {
+    bed:'#FDE3E3', cupboard:'#E3EAFD', sidetable:'#FFF2CF',
+    studytable:'#DFF3DD', chair:'#F1E3FD', sofa:'#E1F3FD'
+};
+
+document.querySelectorAll('.furn-type-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('.furn-type-btn').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        pendingFurnType = this.dataset.type;
+
+        const bedPanel = document.getElementById('bedSizePanel');
+        const dimsPanel = document.getElementById('furnDimsPanel');
+        document.querySelectorAll('.bed-size-btn').forEach(b => b.classList.remove('selected'));
+
+        if(pendingFurnType === 'bed'){
+            bedPanel.classList.remove('hidden');
+            dimsPanel.classList.add('hidden');
+        } else {
+            bedPanel.classList.add('hidden');
+            dimsPanel.classList.remove('hidden');
+            const def = FURN_DEFAULTS_FT[pendingFurnType];
+            document.getElementById('furnWidthInput').value = round2(fromFeet(def.w, currentRoom.unit));
+            document.getElementById('furnDepthInput').value = round2(fromFeet(def.d, currentRoom.unit));
+        }
+    });
+});
+
+document.querySelectorAll('.bed-size-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('.bed-size-btn').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        const size = this.dataset.size;
+        const dimsPanel = document.getElementById('furnDimsPanel');
+
+        if(size === 'custom'){
+            dimsPanel.classList.remove('hidden');
+            document.getElementById('furnWidthInput').value = round2(fromInches(BED_SIZES_IN.queen.w, currentRoom.unit));
+            document.getElementById('furnDepthInput').value = round2(fromInches(BED_SIZES_IN.queen.d, currentRoom.unit));
+        } else {
+            dimsPanel.classList.add('hidden');
+            const bed = BED_SIZES_IN[size];
+            const w = round2(fromInches(bed.w, currentRoom.unit));
+            const d = round2(fromInches(bed.d, currentRoom.unit));
+            addFurnitureItem('bed', bed.label, w, d);
+        }
+    });
+});
+
+document.getElementById('addFurnBtn').addEventListener('click', function(){
+    const w = parseFloat(document.getElementById('furnWidthInput').value);
+    const d = parseFloat(document.getElementById('furnDepthInput').value);
+    if(isNaN(w) || isNaN(d) || w <= 0 || d <= 0) return;
+
+    let label;
+    if(pendingFurnType === 'bed') label = 'Bed (Custom)';
+    else label = FURN_DEFAULTS_FT[pendingFurnType] ? FURN_DEFAULTS_FT[pendingFurnType].label : 'Item';
+
+    addFurnitureItem(pendingFurnType, label, w, d);
+});
+
+function findFreePlacement(wUnits, dUnits, excludeId){
+    const ppu = currentRoom.pxPerUnit;
+    const wPx = wUnits * ppu, hPx = dUnits * ppu;
+    const roomW = currentRoom.boxW, roomH = currentRoom.boxH;
+
+    if(wPx > roomW + 0.5 || hPx > roomH + 0.5) return null;
+
+    const margin = 0.3;
+    const stepOffset = 0.4;
+
+    for(let cycle = 0; cycle < 12; cycle++){
+        let x = margin + (cycle % 6) * stepOffset;
+        let y = margin + (cycle % 6) * stepOffset;
+        x = Math.min(x, Math.max(0, currentRoom.width - wUnits));
+        y = Math.min(y, Math.max(0, currentRoom.length - dUnits));
+        const rect = { x: x * ppu, y: y * ppu, w: wPx, h: hPx };
+        if(!collidesWithFurnitureOrDoors(rect, excludeId)) return { x, y };
+    }
+
+    const stepPx = Math.max(10, currentRoom.cellPx / 2);
+    for(let gy = 0; gy <= roomH - hPx; gy += stepPx){
+        for(let gx = 0; gx <= roomW - wPx; gx += stepPx){
+            const rect = { x: gx, y: gy, w: wPx, h: hPx };
+            if(!collidesWithFurnitureOrDoors(rect, excludeId)) return { x: gx / ppu, y: gy / ppu };
+        }
+    }
+
+    return null;
+}
+
+function addFurnitureItem(type, label, wUnits, dUnits){
+    const pos = findFreePlacement(wUnits, dUnits);
+    if(!pos){
+        alert("There's no free space left in the room for this item.");
+        return;
+    }
+    const item = {
+        id: uid(),
+        type: type,
+        label: label,
+        wUnits: wUnits,
+        dUnits: dUnits,
+        xUnits: pos.x,
+        yUnits: pos.y,
+        rotation: 0
+    };
+    furniture.push(item);
+    selectedFurnId = item.id;
+    renderFurnitureLayer();
+}
+
+function effectiveSize(f){
+    const swapped = (f.rotation % 180) !== 0;
+    return {
+        wUnits: swapped ? f.dUnits : f.wUnits,
+        dUnits: swapped ? f.wUnits : f.dUnits
+    };
+}
+
+function computeToolbarPos(xPx, yPx, wPx, hPx){
+    const toolbarW = 56;
+    const toolbarH = 26;
+    const spacing = 8;
+
+    let top = yPx - toolbarH - spacing;
+    if(top < 0){
+        top = yPx + hPx + spacing;
+    }
+    top = Math.max(0, Math.min(top, currentRoom.boxH - toolbarH));
+
+    let left = xPx + wPx / 2 - toolbarW / 2;
+    left = Math.max(0, Math.min(left, currentRoom.boxW - toolbarW));
+
+    return { left, top };
+}
+
+function renderFurnitureLayer(){
+    document.querySelectorAll('.furn-item').forEach(el => el.remove());
+    document.querySelectorAll('.furn-toolbar').forEach(el => el.remove());
+    const stage = document.getElementById('roomStage');
+    const overlay = document.getElementById('furnOverlay');
+    const ppu = currentRoom.pxPerUnit;
+
+    furniture.forEach(f => {
+        const div = document.createElement('div');
+        div.className = 'furn-item' + (f.id === selectedFurnId ? ' selected' : '');
+        div.dataset.id = f.id;
+
+        const eff = effectiveSize(f);
+        const wPx = eff.wUnits * ppu;
+        const hPx = eff.dUnits * ppu;
+        const xPx = f.xUnits * ppu;
+        const yPx = f.yUnits * ppu;
+
+        div.style.left = xPx + 'px';
+        div.style.top = yPx + 'px';
+        div.style.width = wPx + 'px';
+        div.style.height = hPx + 'px';
+        div.style.background = FURN_COLORS[f.type] || '#eee';
+
+        div.innerHTML = `<span>${f.label}</span><span class="furn-sub">${round2(f.wUnits)}${currentRoom.unit} &times; ${round2(f.dUnits)}${currentRoom.unit}</span>`;
+
+        attachDragHandlers(div, f);
+        stage.appendChild(div);
+
+        if(f.id === selectedFurnId){
+            const toolbar = document.createElement('div');
+            toolbar.className = 'furn-toolbar';
+
+            const rotateBtn = document.createElement('button');
+            rotateBtn.type = 'button';
+            rotateBtn.innerHTML = '&#8635;';
+            rotateBtn.addEventListener('click', function(e){
+                e.stopPropagation();
+
+                const prevRotation = f.rotation;
+                const prevX = f.xUnits, prevY = f.yUnits;
+
+                const before = effectiveSize(f);
+                const centerX = f.xUnits + before.wUnits / 2;
+                const centerY = f.yUnits + before.dUnits / 2;
+
+                f.rotation = (f.rotation + 90) % 360;
+
+                const after = effectiveSize(f);
+                f.xUnits = Math.max(0, Math.min(centerX - after.wUnits / 2, currentRoom.width - after.wUnits));
+                f.yUnits = Math.max(0, Math.min(centerY - after.dUnits / 2, currentRoom.length - after.dUnits));
+
+                const ppu = currentRoom.pxPerUnit;
+                const rect = { x: f.xUnits * ppu, y: f.yUnits * ppu, w: after.wUnits * ppu, h: after.dUnits * ppu };
+
+                if(collidesWithFurnitureOrDoors(rect, f.id)){
+                    const spot = findFreePlacement(after.wUnits, after.dUnits, f.id);
+                    if(spot){
+                        f.xUnits = spot.x;
+                        f.yUnits = spot.y;
+                    } else {
+                        f.rotation = prevRotation;
+                        f.xUnits = prevX;
+                        f.yUnits = prevY;
+                    }
+                }
+
+                renderFurnitureLayer();
+            });
+
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.innerHTML = '&#10005;';
+            delBtn.addEventListener('click', function(e){
+                e.stopPropagation();
+                furniture = furniture.filter(x => x.id !== f.id);
+                if(selectedFurnId === f.id) selectedFurnId = null;
+                renderFurnitureLayer();
+            });
+
+            toolbar.appendChild(rotateBtn);
+            toolbar.appendChild(delBtn);
+            overlay.appendChild(toolbar);
+
+            const pos = computeToolbarPos(xPx, yPx, wPx, hPx);
+            toolbar.style.top = pos.top + 'px';
+            toolbar.style.left = pos.left + 'px';
+        }
+    });
+}
+
+function snapPosition(excludeId, xPx, yPx, wPx, hPx){
+    const threshold = 8;
+    const roomW = currentRoom.boxW, roomH = currentRoom.boxH;
+
+    const candidatesX = [0, roomW - wPx];
+    const candidatesY = [0, roomH - hPx];
+
+    for(let gx = 0; gx <= roomW; gx += currentRoom.cellPx){
+        candidatesX.push(gx, gx - wPx);
+    }
+    for(let gy = 0; gy <= roomH; gy += currentRoom.cellPx){
+        candidatesY.push(gy, gy - hPx);
+    }
+
+    document.querySelectorAll('.furn-item').forEach(el => {
+        if(el.dataset.id === excludeId) return;
+        const ol = parseFloat(el.style.left), ot = parseFloat(el.style.top);
+        const ow = el.offsetWidth, oh = el.offsetHeight;
+        candidatesX.push(ol, ol + ow, ol - wPx, ol + ow - wPx);
+        candidatesY.push(ot, ot + oh, ot - hPx, ot + oh - hPx);
+    });
+
+    let bestX = xPx, bestXDist = threshold;
+    candidatesX.forEach(cx => { const dist = Math.abs(cx - xPx); if(dist < bestXDist){ bestXDist = dist; bestX = cx; } });
+
+    let bestY = yPx, bestYDist = threshold;
+    candidatesY.forEach(cy => { const dist = Math.abs(cy - yPx); if(dist < bestYDist){ bestYDist = dist; bestY = cy; } });
+
+    bestX = Math.max(0, Math.min(bestX, roomW - wPx));
+    bestY = Math.max(0, Math.min(bestY, roomH - hPx));
+    return { xPx: bestX, yPx: bestY };
+}
+
+function attachDragHandlers(div, f){
+    div.addEventListener('pointerdown', function(e){
+        if(e.target.closest('.furn-toolbar')) return;
+        e.preventDefault();
+
+        const startX = e.clientX, startY = e.clientY;
+        const originLeft = parseFloat(div.style.left);
+        const originTop = parseFloat(div.style.top);
+        let lastValidLeft = originLeft, lastValidTop = originTop;
+        let moved = false;
+
+        try { div.setPointerCapture(e.pointerId); } catch(err){}
+
+        function freeAt(left, top, wPx, hPx){
+            return !collidesWithFurnitureOrDoors({ x:left, y:top, w:wPx, h:hPx }, f.id);
+        }
+
+        function onMove(ev){
+            const dx = ev.clientX - startX, dy = ev.clientY - startY;
+            if(Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+
+            const wPx = div.offsetWidth, hPx = div.offsetHeight;
+            let candLeft = originLeft + dx;
+            let candTop = originTop + dy;
+            candLeft = Math.max(0, Math.min(candLeft, currentRoom.boxW - wPx));
+            candTop = Math.max(0, Math.min(candTop, currentRoom.boxH - hPx));
+
+            let newLeft = lastValidLeft, newTop = lastValidTop;
+            if(freeAt(candLeft, candTop, wPx, hPx)){
+                newLeft = candLeft; newTop = candTop;
+            } else if(freeAt(candLeft, lastValidTop, wPx, hPx)){
+                newLeft = candLeft;
+            } else if(freeAt(lastValidLeft, candTop, wPx, hPx)){
+                newTop = candTop;
+            }
+
+            lastValidLeft = newLeft;
+            lastValidTop = newTop;
+            div.style.left = newLeft + 'px';
+            div.style.top = newTop + 'px';
+
+            if(f.id === selectedFurnId){
+                const toolbar = document.querySelector('.furn-toolbar');
+                if(toolbar){
+                    const pos = computeToolbarPos(newLeft, newTop, wPx, hPx);
+                    toolbar.style.left = pos.left + 'px';
+                    toolbar.style.top = pos.top + 'px';
+                }
+            }
+        }
+
+        function onUp(ev){
+            div.removeEventListener('pointermove', onMove);
+            div.removeEventListener('pointerup', onUp);
+
+            if(moved){
+                const wPx = div.offsetWidth, hPx = div.offsetHeight;
+                let xPx = parseFloat(div.style.left), yPx = parseFloat(div.style.top);
+                const snapped = snapPosition(f.id, xPx, yPx, wPx, hPx);
+
+                const finalPos = freeAt(snapped.xPx, snapped.yPx, wPx, hPx) ? snapped : { xPx, yPx };
+
+                div.style.left = finalPos.xPx + 'px';
+                div.style.top = finalPos.yPx + 'px';
+                f.xUnits = finalPos.xPx / currentRoom.pxPerUnit;
+                f.yUnits = finalPos.yPx / currentRoom.pxPerUnit;
+
+                if(f.id === selectedFurnId){
+                    const toolbar = document.querySelector('.furn-toolbar');
+                    if(toolbar){
+                        const pos = computeToolbarPos(finalPos.xPx, finalPos.yPx, wPx, hPx);
+                        toolbar.style.left = pos.left + 'px';
+                        toolbar.style.top = pos.top + 'px';
+                    }
+                }
+            } else {
+                selectedFurnId = (selectedFurnId === f.id) ? null : f.id;
+                renderFurnitureLayer();
+            }
+        }
+
+        div.addEventListener('pointermove', onMove);
+        div.addEventListener('pointerup', onUp);
+    });
+}
+</script>
+
+</body>
+</html>
